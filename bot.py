@@ -10,11 +10,11 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 TOKEN = "8785462549:AAEDI_fiJJXAOaVFFWhGChGQT3VnmzskDWQ"
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-# Flask App (ဒီနေရာမှာ app ကို အသေအချာ ကြေညာထားပါတယ်)
+# Flask App
 app = Flask(__name__)
 
-# Firebase Realtime Database URL
-FIREBASE_URL = "https://flashlotter-default-rtdb.europe-west1.firebasedatabase.app"
+# Admin Bot နှင့် ချိတ်ဆက်ထားသော Database URL အမှန်
+FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.app"
 
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
@@ -56,7 +56,7 @@ def handle_name(message):
     chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     check_id = 'FLASH-' + ''.join(random.choice(chars) for _ in range(5))
     
-    # Firebase သို့ အချက်အလက် ပို့ခြင်း (Admin Bot မှ မြင်နိုင်ရန်)
+    # Firebase သို့ အချက်အလက် ပို့ခြင်း (Admin Bot မှ တိုက်ရိုက် မြင်နိုင်ရန်)
     user_data = {
         'checkId': check_id,
         'tgName': tg_name,
