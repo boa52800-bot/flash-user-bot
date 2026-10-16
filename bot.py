@@ -202,8 +202,12 @@ def check_time_command(message):
     rem_secs = int((remaining_ms % (1000 * 60)) / 1000)
     bot.send_message(message.chat.id, f"⏳ **ကျန်ရှိချိန်:** {rem_mins} မိနစ် {rem_secs} စက္ကန့်", parse_mode="Markdown")
 
-# --- ဖော်မြူလာ ၁ (Formula 1 Python Logic - Balanced) ---
+# --- ဖော်မြူလာ ၁ (Formula 1 Logic) ---
 def run_formula_1(api_list):
+    states = ['BIG' if int(item.get('number', 0)) >= 5 else 'SMALL' for item in api_list[:700]]
+    if not states or len(states) < 5:
+        return {"formulaName": "Formula 1 (AI Sniper)", "prediction": "BIG 🟢", "confidence": 65}
+
     big_score = 50
     small_score = 50
     recent_numbers = [int(i.get('number', 0)) for i in api_list[:10] if str(i.get('number', '')).isdigit()]
@@ -218,20 +222,18 @@ def run_formula_1(api_list):
 
     is_big = big_score >= small_score
     confidence = 65 + abs(big_score - small_score)
-    if confidence > 98:
-        confidence = 98
+    if confidence > 98: confidence = 98
 
     return {
         "formulaName": "Formula 1 (AI Sniper)",
         "prediction": "BIG 🟢" if is_big else "SMALL 🔴",
-        "confidence": confidence,
-        "isSniper": confidence >= 90
+        "confidence": confidence
     }
 
-# --- ဖော်မြူလာ ၂ (Formula 2 Python Logic - Balanced) ---
+# --- ဖော်မြူလာ ၂ (Formula 2 Logic) ---
 def run_formula_2(api_list):
     if not api_list or len(api_list) < 5:
-        return {"formulaName": "Formula 2 (Advanced Engine)", "prediction": "SMALL 🔴", "confidence": 68, "isSniper": False}
+        return {"formulaName": "Formula 2 (Advanced Engine)", "prediction": "SMALL 🔴", "confidence": 68}
 
     big_score = 50
     small_score = 50
@@ -251,14 +253,12 @@ def run_formula_2(api_list):
 
     is_big = big_score >= small_score
     confidence = 70 + abs(big_score - small_score)
-    if confidence > 99:
-        confidence = 99
+    if confidence > 99: confidence = 99
 
     return {
         "formulaName": "Formula 2 (Advanced Engine)",
         "prediction": "BIG 🟢" if is_big else "SMALL 🔴",
-        "confidence": confidence,
-        "isSniper": confidence >= 90
+        "confidence": confidence
     }
 
 # 🎲 Formula 1 & Formula 2 Execution Handler
