@@ -3,7 +3,7 @@ import time
 import requests
 import random
 import threading
-from flask import Flask, request
+from flask import Flask
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -11,13 +11,9 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 TOKEN = "8785462549:AAEDI_fiJJXAOaVFFWhGChGQT3VnmzskDWQ"
 bot = telebot.TeleBot(TOKEN, threaded=False)
 
-# Flask App
 app = Flask(__name__)
-
-# Firebase Realtime Database URL
 FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.app"
 
-# အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
 
 API_HEADERS = {
@@ -28,23 +24,19 @@ API_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
 }
 
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return "!", 200
-    else:
-        return "Internal Server Error", 403
-
 @app.route('/')
 def home():
-    return "Flash User Bot Webhook is Active!"
+    return "Flash User Bot is Running!"
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
+    
+    # အရင် run နေတာတွေရှိရင် ရပ်တန့်မည်
+    if chat_id in user_sessions:
+        user_sessions[chat_id]["step"] = "stopped"
+        time.sleep(1)
+
     try:
         res = requests.get(f"{FIREBASE_URL}/users.json")
         users = res.json()
@@ -134,17 +126,23 @@ def verify_approval(call):
 @bot.callback_query_handler(func=lambda call: call.data in ["formula_1", "formula_2"])
 def select_formula(call):
     chat_id = call.message.chat.id
+    
+    if chat_id not in user_sessions:
+        user_sessions[chat_id] = {}
+        
     formula_num = 1 if call.data == "formula_1" else 2
     
+    # အရင် run နေတဲ့ loop တွေကို ရပ်တန့်ဖို့ token အသစ်တစ်ခု သုံးမည်
+    session_token = str(time.time())
+    user_sessions[chat_id]["session_token"] = session_token
     user_sessions[chat_id]["formula"] = formula_num
     user_sessions[chat_id]["step"] = "running"
     
     bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
-    threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
+    threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num, session_token)).start()
 
-# Stop နှင့် Time Check ခလုတ်များအတွက် Callback Handler
 @bot.callback_query_handler(func=lambda call: call.data in ["stop_bot", "check_time"])
 def handle_control_buttons(call):
     chat_id = call.message.chat.id
@@ -160,12 +158,11 @@ def handle_control_buttons(call):
             bot.send_message(chat_id, "🛑 **ခန့်မှန်းမှုများ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown")
             
     elif call.data == "check_time":
-        # ၁ မိနစ် (၆၀ စက္ကန့်) တာဝန်ခံအချိန်ကို တွက်ချက်ပြသခြင်း
         current_sec = int(time.time()) % 60
         left_sec = 60 - current_sec
         bot.answer_callback_query(call.id, text=f"⏳ လက်ရှိပွဲ დასრულရန် {left_sec} စက္ကန့် လိုပါသေးသည်", show_alert=True)
 
-def run_prediction_loop(chat_id, formula_num):
+def run_prediction_loop(chat_id, formula_num, session_token):
     last_processed_issue = None
     last_prediction = None
     api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
@@ -176,7 +173,7 @@ def run_prediction_loop(chat_id, formula_num):
         InlineKeyboardButton("🛑 ရပ်ရန် (Stop)", callback_data="stop_bot")
     )
 
-    while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running":
+    while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
         try:
             payload = {"pageSize": 10, "pageNo": 1}
             res = requests.post(api_url, json=payload, headers=API_HEADERS, timeout=10)
@@ -225,12 +222,15 @@ def run_prediction_loop(chat_id, formula_num):
             
         time.sleep(10)
 
-if __name__ == "__main__":
-    RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
-    if RENDER_URL:
-        bot.remove_webhook()
-        bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
-        print(f"Webhook set to: {RENDER_URL}/{TOKEN}")
-
+def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    bot.remove_webhook()
+    print("Bot is running with Infinity Polling...")
+    bot.infinity_polling(skip_pending=True)
