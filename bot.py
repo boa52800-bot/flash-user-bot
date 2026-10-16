@@ -15,7 +15,7 @@ bot = telebot.TeleBot(TOKEN, threaded=False)
 app = Flask(__name__)
 
 # Firebase Realtime Database URL
-FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.app"
+FIREBASE_URL = "https://flash1d21e-default-rtdb.europe-west1.firebasedatabase.app"
 
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
@@ -40,14 +40,38 @@ def webhook():
 def home():
     return "Flash User Bot Webhook is Active!"
 
-# 1. /start နှိပ်သောအခါ Telegram Name တောင်းခြင်း
+# 1. /start နှိပ်သောအခါ
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
+    
+    # ဤ Telegram ID ဖြင့် ရှေးဦးစွာ Firebase ထဲတွင် Check ID ရှိပြီးသားလား စစ်ဆေးခြင်း
+    try:
+        res = requests.get(f"{FIREBASE_URL}/users.json")
+        users = res.json()
+        existing_check_id = None
+        if users:
+            for cid, data in users.items():
+                if isinstance(data, dict) and data.get('chatId') == chat_id:
+                    existing_check_id = cid
+                    break
+        
+        if existing_check_id:
+            # Check ID ရှိပြီးသားဆိုရင် အသစ်မထုတ်တော့ဘဲ အဟောင်းကိုပဲ ပြန်သုံးမည်
+            user_sessions[chat_id] = {"check_id": existing_check_id, "step": "waiting_approval"}
+            text = f"✅ သင့်ရဲ့ Check ID (ရှိပြီးသား): `{existing_check_id}`\n\n" \
+                   f"အထက်ပါ Check ID ကို Admin Bot သို့ ပို့၍ အချိန်ခွင့်ပြုချက် ရယူပါ။"
+            markup = InlineKeyboardMarkup()
+            markup.add(InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
+            bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
+            return
+    except Exception as e:
+        print(e)
+
     bot.send_message(chat_id, "⚡ FLASH TRX BOT ⚡\n\nအသုံးပြုရန် ကျေးဇူးပြု၍ သင့် Telegram Name ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - Kyaw Kyaw)")
     user_sessions[chat_id] = {"step": "awaiting_name"}
 
-# 2. Telegram Name လက်ခံရယူပြီး Check ID ထုတ်ပေးခြင်း
+# 2. Telegram Name လက်ခံရယူပြီး Check ID တစ်ခုတည်း အမြဲသေချာစေခြင်း
 @bot.message_handler(func=lambda message: message.chat.id in user_sessions and user_sessions[message.chat.id].get("step") == "awaiting_name")
 def handle_name(message):
     chat_id = message.chat.id
@@ -81,7 +105,7 @@ def handle_name(message):
     
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
-# 3. ခွင့်ပြုချက် စစ်ဆေးခြင်းနှင့် ဖော်မြူလာ ရွေးချယ်ခိုင်းခြင်း
+# 3. ခွင့်ပြုချက် စစ်ဆေးခြင်း
 @bot.callback_query_handler(func=lambda call: call.data == "check_approval")
 def verify_approval(call):
     chat_id = call.message.chat.id
@@ -111,7 +135,7 @@ def verify_approval(call):
     else:
         bot.answer_callback_query(call.id, text="❌ Admin မှ ခွင့်ပြုချက် မပေးသေးပါ သို့မဟုတ် စောင့်ဆိုင်းနေဆဲပါ။")
 
-# 4. ဖော်မြူလာ ရွေးချယ်ပြီး ခန့်မှန်းချက်စတင်ခြင်း
+# 4. ဖော်မြူလာ ရွေးချယ်ခြင်း
 @bot.callback_query_handler(func=lambda call: call.data in ["formula_1", "formula_2"])
 def select_formula(call):
     chat_id = call.message.chat.id
@@ -120,51 +144,51 @@ def select_formula(call):
     user_sessions[chat_id]["formula"] = formula_num
     user_sessions[chat_id]["step"] = "running"
     
-    bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။\nခဏစောင့်ပါ၊ ပွဲစဉ်အချက်အလက်များကို ဆွဲထုတ်နေပါသည်...", 
+    bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
-    # ချက်ချင်း Thread စတင်ရန်
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
 
-# 5. API မှ ဒေတာချက်ချင်းဆွဲထုတ်ပြီး Noti ပို့ပေးမည့် Loop
+# 5. API ချိတ်ဆက်မှုကို အမှားအယွင်းကင်းကင်း ဆွဲထုတ်မည့် Loop
 def run_prediction_loop(chat_id, formula_num):
     last_processed_issue = None
     last_prediction = None
     
-    # စတင်လုပ်ဆောင် వెంటనే ပထမဆုံးအကြိမ် API လှမ်းခေါ်ရန်
-    try:
-        res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
-        data = res.json()
-        list_data = data.get('data', {}).get('list', [])
-        
-        if len(list_data) > 0:
-            current_issue = list_data[0]['issueNumber']
-            actual_num = int(list_data[0]['number'])
+    # API ချိတ်ဆက်မှု အဆင်ပြေသည်အထိ ၃ ကြိမ်အထိ ထပ်ကြိုးစားရန် (Retry mechanism)
+    success = False
+    for _ in range(3):
+        try:
+            res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
+            data = res.json()
+            list_data = data.get('data', {}).get('list', [])
             
-            last_processed_issue = current_issue
-            next_issue = str(int(current_issue) + 1)
-            
-            # ဖော်မြူလာအလိုက် ခန့်မှန်းချက်
-            if formula_num == 2:
-                predicted_state = "BIG" if (actual_num % 2 == 0) else "SMALL"
-            else:
-                predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+            if len(list_data) > 0:
+                current_issue = list_data[0]['issueNumber']
+                actual_num = int(list_data[0]['number'])
                 
-            last_prediction = predicted_state
+                last_processed_issue = current_issue
+                next_issue = str(int(current_issue) + 1)
+                
+                predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+                last_prediction = predicted_state
+                
+                init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
+                            f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
+                            f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
+                            f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
+                bot.send_message(chat_id, init_text)
+                success = True
+                break
+        except Exception as e:
+            print(f"Retry Error: {e}")
+            time.sleep(2)
             
-            init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                        f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
-                        f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
-                        f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-            bot.send_message(chat_id, init_text)
-    except Exception as e:
-        print(f"Init Error: {e}")
-        bot.send_message(chat_id, "⚠️ API ချိတ်ဆက်ရာတွင် အခက်အခဲရှိနေပါသည်။ ခဏနေ၍ ပြန်စမ်းပါ။")
+    if not success:
+        bot.send_message(chat_id, "⚠️ API ချိတ်ဆက်ရာတွင် အခက်အခဲရှိနေပါသည်။ သို့သော် ဆက်လက်စောင့်ကြည့်နေပါမည်။")
 
-    # ဆက်လက်စောင့်ကြည့်မည့် Loop
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running":
         try:
-            time.sleep(10)
+            time.sleep(12)
             res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
             data = res.json()
             list_data = data.get('data', {}).get('list', [])
@@ -184,13 +208,8 @@ def run_prediction_loop(chat_id, formula_num):
                         bot.send_message(chat_id, result_text)
                     
                     last_processed_issue = current_issue
-                    
                     next_issue = str(int(current_issue) + 1)
-                    if formula_num == 2:
-                        predicted_state = "BIG" if (actual_num % 2 == 0) else "SMALL"
-                    else:
-                        predicted_state = "BIG" if actual_num >= 5 else "SMALL"
-                        
+                    predicted_state = "BIG" if actual_num >= 5 else "SMALL"
                     last_prediction = predicted_state
                     
                     next_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
@@ -198,7 +217,6 @@ def run_prediction_loop(chat_id, formula_num):
                                 f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                                 f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
                     bot.send_message(chat_id, next_text)
-                    
         except Exception as e:
             print(f"Loop Error: {e}")
 
