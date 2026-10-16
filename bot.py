@@ -278,12 +278,11 @@ def run_formula_2(api_list):
         "confidence": confidence
     }
 
-# 🎲 Formula 1 & Formula 2 Execution Handler (Timestamp ဖြင့် API ခေါ်ယူခြင်း)
+# 🎲 Formula 1 & Formula 2 Execution Handler (ပွဲစဉ်နံပါတ် အမှန် တိကျစွာ တွက်ချက်ခြင်း)
 @bot.message_handler(func=lambda message: message.text in ["🎲 Big / Small (Formula 1)", "🔥 Big / Small (Formula 2)"])
 def handle_formulas(message):
     is_formula_2 = "Formula 2" in message.text
     
-    next_issue = str(int(time.time() / 60))
     prev_issue = "-"
     prev_result = "-"
     win_loss = "-"
@@ -297,7 +296,6 @@ def handle_formulas(message):
             'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36',
             'Referer': 'https://hgnice.biz'
         }
-        # Timestamp ထည့်သွင်း၍ fetch လုပ်ခြင်း (JavaScript ပုံစံအတိုင်း)
         ts_url = f"{url}?ts={int(time.time() * 1000)}"
         res = requests.get(ts_url, headers=headers, timeout=5)
         
@@ -306,13 +304,16 @@ def handle_formulas(message):
             lst = data.get('data', {}).get('list', [])
             
             if lst and len(lst) >= 2:
-                current_item = lst[0]
+                latest_item = lst[0]
                 prev_item = lst[1]
                 
-                current_issue = str(current_item.get('issueNumber', ''))
-                if current_issue.isdigit():
-                    next_issue = str(int(current_issue) + 1)
-                
+                # API မှလာသော နောက်ဆုံးထွက်ပွဲစဉ်ကို အခြေခံ၍ လက်ရှိ active ဖြစ်နေသော ပွဲစဉ်နံပါတ်ကို တိကျစွာ ယူခြင်း
+                latest_issue_str = str(latest_item.get('issueNumber', ''))
+                if latest_issue_str.isdigit():
+                    next_issue = str(int(latest_issue_str) + 1)
+                else:
+                    next_issue = str(int(time.time() / 60))
+
                 prev_issue = str(prev_item.get('issueNumber', ''))
                 prev_num = int(prev_item.get('number', 0))
                 prev_result = "BIG 🟢" if prev_num >= 5 else "SMALL 🔴"
@@ -326,10 +327,14 @@ def handle_formulas(message):
                 confidence = result['confidence']
                 formula_name = result['formulaName']
                 
-                # အနိုင်အရှုံး စစ်ဆေးချက် (Win / Loss)
                 win_loss = "WIN ✅" if (prediction.startswith("BIG") and prev_num >= 5) or (prediction.startswith("SMALL") and prev_num < 5) else "LOSE ❌"
+            else:
+                next_issue = str(int(time.time() / 60))
+        else:
+            next_issue = str(int(time.time() / 60))
     except Exception as e:
         print(f"TRX API Fetch Error: {e}")
+        next_issue = str(int(time.time() / 60))
 
     bot.send_message(
         message.chat.id,
