@@ -53,7 +53,6 @@ def start_command(message):
     except:
         user_data = None
 
-    # အကယ်၍ Database ထဲမှာ မရှိသေးရင် ၁၀ မိနစ် (600,000 ms) အလိုအလျောက် ဖန်တီးပေးမည်
     if not user_data:
         initial_data = {
             'checkId': chat_id,
@@ -234,12 +233,15 @@ def handle_formulas(message):
         parse_mode="Markdown"
     )
 
-if __name__ == "__main__":
-    RENDER_URL = "https://flash-user-bot.onrender.com"
-    
+# Gunicorn ဖြင့် တိုက်ရိုက် Webhook ချိတ်ဆက်ခြင်း
+RENDER_URL = "https://flash-user-bot.onrender.com"
+try:
     bot.remove_webhook()
     bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
     print(f"Webhook set to: {RENDER_URL}/{TOKEN}")
+except Exception as e:
+    print(f"Webhook error: {e}")
 
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
