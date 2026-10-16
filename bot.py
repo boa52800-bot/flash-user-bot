@@ -2,6 +2,7 @@ import os
 import time
 import requests
 import random
+import threading
 from flask import Flask, request
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -13,7 +14,7 @@ bot = telebot.TeleBot(TOKEN, threaded=False)
 # Flask App
 app = Flask(__name__)
 
-# Admin Bot နှင့် ချိတ်ဆက်ထားသော Database URL အမှန်
+# Firebase Realtime Database URL
 FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.app"
 
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
@@ -21,7 +22,7 @@ user_sessions = {}
 
 # TRX WinGo API အတွက် Headers
 API_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Referer': 'https://hgnice.biz'
 }
 
@@ -52,11 +53,9 @@ def handle_name(message):
     chat_id = message.chat.id
     tg_name = message.text.strip()
     
-    # Random Check ID ဖန်တီးခြင်း
     chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
     check_id = 'FLASH-' + ''.join(random.choice(chars) for _ in range(5))
     
-    # Firebase သို့ အချက်အလက် ပို့ခြင်း (Admin Bot မှ တိုက်ရိုက် မြင်နိုင်ရန်)
     user_data = {
         'checkId': check_id,
         'tgName': tg_name,
@@ -121,21 +120,52 @@ def select_formula(call):
     user_sessions[chat_id]["formula"] = formula_num
     user_sessions[chat_id]["step"] = "running"
     
-    bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။\nပွဲစဉ်အသစ်ထွက်လာသည်နှင့် Telegram မှတဆင့် Noti ပို့ပေးပါမည်။", 
+    bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။\nခဏစောင့်ပါ၊ ပွဲစဉ်အချက်အလက်များကို ဆွဲထုတ်နေပါသည်...", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
-    # နောက်ခံတွင် ပွဲစဉ်များကို စောင့်ကြည့်ပြီး Noti ပို့မည့် Thread ကို စတင်ခြင်း
-    import threading
+    # ချက်ချင်း Thread စတင်ရန်
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
 
-# 5. API မှ ဒေတာဆွဲထုတ်ပြီး တစ်ပွဲပြီးတစ်ပွဲ Noti ပို့ပေးမည့် Function
+# 5. API မှ ဒေတာချက်ချင်းဆွဲထုတ်ပြီး Noti ပို့ပေးမည့် Loop
 def run_prediction_loop(chat_id, formula_num):
     last_processed_issue = None
     last_prediction = None
     
+    # စတင်လုပ်ဆောင် వెంటనే ပထမဆုံးအကြိမ် API လှမ်းခေါ်ရန်
+    try:
+        res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
+        data = res.json()
+        list_data = data.get('data', {}).get('list', [])
+        
+        if len(list_data) > 0:
+            current_issue = list_data[0]['issueNumber']
+            actual_num = int(list_data[0]['number'])
+            
+            last_processed_issue = current_issue
+            next_issue = str(int(current_issue) + 1)
+            
+            # ဖော်မြူလာအလိုက် ခန့်မှန်းချက်
+            if formula_num == 2:
+                predicted_state = "BIG" if (actual_num % 2 == 0) else "SMALL"
+            else:
+                predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+                
+            last_prediction = predicted_state
+            
+            init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
+                        f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
+                        f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
+                        f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
+            bot.send_message(chat_id, init_text)
+    except Exception as e:
+        print(f"Init Error: {e}")
+        bot.send_message(chat_id, "⚠️ API ချိတ်ဆက်ရာတွင် အခက်အခဲရှိနေပါသည်။ ခဏနေ၍ ပြန်စမ်းပါ။")
+
+    # ဆက်လက်စောင့်ကြည့်မည့် Loop
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running":
         try:
-            res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS)
+            time.sleep(10)
+            res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
             data = res.json()
             list_data = data.get('data', {}).get('list', [])
             
@@ -156,7 +186,11 @@ def run_prediction_loop(chat_id, formula_num):
                     last_processed_issue = current_issue
                     
                     next_issue = str(int(current_issue) + 1)
-                    predicted_state = "BIG" if actual_num >= 4 else "SMALL"
+                    if formula_num == 2:
+                        predicted_state = "BIG" if (actual_num % 2 == 0) else "SMALL"
+                    else:
+                        predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+                        
                     last_prediction = predicted_state
                     
                     next_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
@@ -167,8 +201,6 @@ def run_prediction_loop(chat_id, formula_num):
                     
         except Exception as e:
             print(f"Loop Error: {e}")
-            
-        time.sleep(15)
 
 if __name__ == "__main__":
     RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
