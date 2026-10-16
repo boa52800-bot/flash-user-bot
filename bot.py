@@ -278,7 +278,7 @@ def run_formula_2(api_list):
         "confidence": confidence
     }
 
-# 🎲 Formula 1 & Formula 2 Execution Handler (ပွဲစဉ်နံပါတ် အမှန် တိကျစွာ တွက်ချက်ခြင်း)
+# 🎲 Formula 1 & Formula 2 Execution Handler (TRX_API_CONFIG ပုံစံအတိုင်း အတိအကျချိတ်ဆက်ခြင်း)
 @bot.message_handler(func=lambda message: message.text in ["🎲 Big / Small (Formula 1)", "🔥 Big / Small (Formula 2)"])
 def handle_formulas(message):
     is_formula_2 = "Formula 2" in message.text
@@ -291,13 +291,16 @@ def handle_formulas(message):
     confidence = 94
 
     try:
-        url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36',
-            'Referer': 'https://hgnice.biz'
+        TRX_API_CONFIG = {
+            "url": "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json",
+            "headers": {
+                'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36',
+                'Referer': 'https://hgnice.biz'
+            }
         }
-        ts_url = f"{url}?ts={int(time.time() * 1000)}"
-        res = requests.get(ts_url, headers=headers, timeout=5)
+        
+        ts_url = f"{TRX_API_CONFIG['url']}?ts={int(time.time() * 1000)}"
+        res = requests.get(ts_url, headers=TRX_API_CONFIG['headers'], timeout=5)
         
         if res.status_code == 200 and res.headers.get('content-type', '').startswith('application/json'):
             data = res.json()
@@ -307,7 +310,7 @@ def handle_formulas(message):
                 latest_item = lst[0]
                 prev_item = lst[1]
                 
-                # API မှလာသော နောက်ဆုံးထွက်ပွဲစဉ်ကို အခြေခံ၍ လက်ရှိ active ဖြစ်နေသော ပွဲစဉ်နံပါတ်ကို တိကျစွာ ယူခြင်း
+                # JavaScript ပုံစံအတိုင်း တိကျမှန်ကန်သော ပွဲစဉ်နံပါတ် တွက်ချက်မှု
                 latest_issue_str = str(latest_item.get('issueNumber', ''))
                 if latest_issue_str.isdigit():
                     next_issue = str(int(latest_issue_str) + 1)
