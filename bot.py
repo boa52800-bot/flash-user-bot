@@ -1,3 +1,4 @@
+
 import os
 import time
 import requests
@@ -20,10 +21,10 @@ FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.a
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
 
+# အရင် HTML တွင် အောင်မြင်စွာ အသုံးပြုခဲ့သော Headers
 API_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'Accept': 'application/json, text/plain, */*',
-    'Referer': 'https://hgnice.biz/'
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36',
+    'Referer': 'https://hgnice.biz'
 }
 
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -142,24 +143,27 @@ def select_formula(call):
     
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
 
+# အရင် HTML ၏ မူရင်း API ကို အသုံးပြု၍ တိကျမှန်ကန်သော ပွဲစဉ်နံပါတ်ဆွဲထုတ်မည့် Loop
 def run_prediction_loop(chat_id, formula_num):
     last_processed_issue = None
     last_prediction = None
     
+    # အရင် HTML တွင် သုံးခဲ့သော အဓိက API URL အမှန်
     api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
     
     # ပထမအကြိမ် ချက်ချင်းဆွဲထုတ်ရန်
     try:
-        res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=5)
+        res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
         data = res.json()
         list_data = data.get('data', {}).get('list', [])
         
         if len(list_data) > 0:
-            current_issue = str(list_data[0].get('issueNumber'))
+            current_issue = str(list_data[0].get('issueNumber')) # တကယ့် ဝဘ်ဆိုက်ပေါ်က ပွဲစဉ်နံပါတ်အမှန်
             actual_num = int(list_data[0].get('number', 0))
             
             last_processed_issue = current_issue
-            next_issue = str(int(current_issue) + 1)
+            next_issue = str(int(current_issue) + 1) # နောက်ပွဲစဉ်နံပါတ်
+            
             predicted_state = "BIG" if actual_num >= 5 else "SMALL"
             last_prediction = predicted_state
             
@@ -169,14 +173,13 @@ def run_prediction_loop(chat_id, formula_num):
                         f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
             bot.send_message(chat_id, init_text)
     except Exception as e:
-        # Error တက်ရင်တောင် အလိုအလျောက် ပွဲစဉ်အတု (သို့မဟုတ်) Default တစ်ခုနဲ့ ချက်ချင်းစတင်ပေးမည်
-        next_issue = str(int(time.time()) // 60)
-        bot.send_message(chat_id, f"⚡ FLASH TRX • SNIPER AI\n\n📌 ပွဲစဉ်အသစ်: {next_issue}\n🔮 ခန့်မှန်းချက်: BIG\n⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}")
+        print(f"Init Error: {e}")
 
+    # ဆက်လက်စောင့်ကြည့်မည့် Loop (၁၂ စက္ကန့်တစ်ကြိမ်)
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running":
         try:
             time.sleep(12)
-            res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=5)
+            res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
             data = res.json()
             list_data = data.get('data', {}).get('list', [])
             
