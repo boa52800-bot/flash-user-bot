@@ -29,7 +29,6 @@ def webhook():
 def home():
     return "User BetBot Webhook is Active!"
 
-# User Bot ရဲ့ မီနူးခလုတ်များ
 def get_main_menu():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
     markup.add(
@@ -41,7 +40,7 @@ def get_main_menu():
     )
     return markup
 
-# 🚀 /start Command (10 မိနစ် အလိုအလျောက် စတင်ပေးမည့် ပုံစံ)
+# 🚀 /start Command
 @bot.message_handler(commands=['start'])
 def start_command(message):
     chat_id = str(message.chat.id)
@@ -60,7 +59,7 @@ def start_command(message):
             'status': True,
             'mode': 'timed',
             'startTime': current_time,
-            'duration': 10 * 60 * 1000,  # ၁၀ မိနစ်
+            'duration': 10 * 60 * 1000,
             'elapsed': 0
         }
         requests.put(f"{FIREBASE_URL}/users/{chat_id}.json", json=initial_data)
@@ -115,7 +114,6 @@ def start_command(message):
                 parse_mode="Markdown"
             )
 
-# 🛑 Stop Command
 @bot.message_handler(func=lambda message: message.text in ["🛑 Stop", "stop", "STOP"])
 def stop_command(message):
     chat_id = str(message.chat.id)
@@ -159,7 +157,6 @@ def stop_command(message):
     else:
         bot.send_message(message.chat.id, "ℹ️ အချိန်ရေတွက်ခြင်း မရှိသေးပါ။")
 
-# ⏳ ကျန်ရှိချိန် စစ်ဆေးရန်
 @bot.message_handler(func=lambda message: message.text in ["⏳ ကျန်ရှိချိန် စစ်ဆေးရန်"])
 def check_time_command(message):
     chat_id = str(message.chat.id)
@@ -205,23 +202,23 @@ def check_time_command(message):
     rem_secs = int((remaining_ms % (1000 * 60)) / 1000)
     bot.send_message(message.chat.id, f"⏳ **ကျန်ရှိသောအချိန်:** {rem_mins} မိနစ် {rem_secs} စက္ကန့်", parse_mode="Markdown")
 
-# 🎲 Formula 1 & Formula 2
+# 🎲 Formula 1 & Formula 2 (Period အမှန် ဆွဲထုတ်ပေးမည့် ပုံစံ)
 @bot.message_handler(func=lambda message: message.text in ["🎲 Big / Small (Formula 1)", "🔥 Big / Small (Formula 2)"])
 def handle_formulas(message):
     chat_id = str(message.chat.id)
     is_formula_2 = "Formula 2" in message.text
     formula_name = "Formula 2 (Advanced Engine)" if is_formula_2 else "Formula 1 (AI Sniper Engine)"
     
+    next_issue = "Loading..."
     try:
-        api_res = requests.get("https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json", timeout=5).json()
+        headers = {'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36', 'Referer': 'https://hgnice.biz'}
+        api_res = requests.get("https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json", headers=headers, timeout=5).json()
         list_data = api_res.get('data', {}).get('list', [])
-        if list_data:
+        if list_data and len(list_data) > 0:
             latest_issue = str(list_data[0].get('issueNumber', '00000'))
             next_issue = str(int(latest_issue) + 1)
-        else:
-            next_issue = "Active Period"
-    except:
-        next_issue = "Active Period"
+    except Exception as e:
+        print(f"API Error: {e}")
 
     bot.send_message(
         message.chat.id,
@@ -233,7 +230,6 @@ def handle_formulas(message):
         parse_mode="Markdown"
     )
 
-# Gunicorn ဖြင့် တိုက်ရိုက် Webhook ချိတ်ဆက်ခြင်း
 RENDER_URL = "https://flash-user-bot.onrender.com"
 try:
     bot.remove_webhook()
