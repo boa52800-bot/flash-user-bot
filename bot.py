@@ -14,8 +14,8 @@ bot = telebot.TeleBot(TOKEN, threaded=False)
 # Flask App
 app = Flask(__name__)
 
-# Firebase Realtime Database URL
-FIREBASE_URL = "https://flash1d21e-default-rtdb.europe-west1.firebasedatabase.app"
+# Admin Bot တွင် အသုံးပြုခဲ့သော တိကျမှန်ကန်သည့် Database URL
+FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.app"
 
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
@@ -45,7 +45,7 @@ def home():
 def send_welcome(message):
     chat_id = message.chat.id
     
-    # ဤ Telegram ID ဖြင့် ရှေးဦးစွာ Firebase ထဲတွင် Check ID ရှိပြီးသားလား စစ်ဆေးခြင်း
+    # ဤ Telegram ID ဖြင့် Firebase ထဲတွင် Check ID ရှိပြီးသားလား စစ်ဆေးခြင်း
     try:
         res = requests.get(f"{FIREBASE_URL}/users.json")
         users = res.json()
@@ -57,7 +57,6 @@ def send_welcome(message):
                     break
         
         if existing_check_id:
-            # Check ID ရှိပြီးသားဆိုရင် အသစ်မထုတ်တော့ဘဲ အဟောင်းကိုပဲ ပြန်သုံးမည်
             user_sessions[chat_id] = {"check_id": existing_check_id, "step": "waiting_approval"}
             text = f"✅ သင့်ရဲ့ Check ID (ရှိပြီးသား): `{existing_check_id}`\n\n" \
                    f"အထက်ပါ Check ID ကို Admin Bot သို့ ပို့၍ အချိန်ခွင့်ပြုချက် ရယူပါ။"
@@ -71,7 +70,7 @@ def send_welcome(message):
     bot.send_message(chat_id, "⚡ FLASH TRX BOT ⚡\n\nအသုံးပြုရန် ကျေးဇူးပြု၍ သင့် Telegram Name ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - Kyaw Kyaw)")
     user_sessions[chat_id] = {"step": "awaiting_name"}
 
-# 2. Telegram Name လက်ခံရယူပြီး Check ID တစ်ခုတည်း အမြဲသေချာစေခြင်း
+# 2. Telegram Name လက်ခံရယူပြီး Check ID ထုတ်ပေးခြင်း
 @bot.message_handler(func=lambda message: message.chat.id in user_sessions and user_sessions[message.chat.id].get("step") == "awaiting_name")
 def handle_name(message):
     chat_id = message.chat.id
@@ -149,12 +148,11 @@ def select_formula(call):
     
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
 
-# 5. API ချိတ်ဆက်မှုကို အမှားအယွင်းကင်းကင်း ဆွဲထုတ်မည့် Loop
+# 5. API ချိတ်ဆက်မှုကို ဆွဲထုတ်မည့် Loop
 def run_prediction_loop(chat_id, formula_num):
     last_processed_issue = None
     last_prediction = None
     
-    # API ချိတ်ဆက်မှု အဆင်ပြေသည်အထိ ၃ ကြိမ်အထိ ထပ်ကြိုးစားရန် (Retry mechanism)
     success = False
     for _ in range(3):
         try:
