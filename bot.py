@@ -7,7 +7,7 @@ from flask import Flask
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# User Bot Token
+# User Bot Token အသစ်
 TOKEN = "8998519135:AAGPvPSCLdUZBcj6S2yO2VGuL1l_yDVsUQ8"
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
@@ -24,7 +24,7 @@ API_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
 }
 
-# အကွက်လေးကို နှိပ်ရင်ပေါ်လာမည့် မီနူးခလုတ်များ
+# စာရိုက်ကွက်ဘေးတွင် မီနူးခလုတ်များ အမြဲပေါ်နေစေရန်
 def get_control_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, persistent=True)
     markup.row(
@@ -171,7 +171,7 @@ def handle_reply_buttons(message):
     if message.text == "🛑 ရပ်ရန် (Stop)":
         if session:
             session["step"] = "stopped"
-        bot.send_message(chat_id, "🛑 **ခန့်မှန်းမှုများ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown")
+        bot.send_message(chat_id, "🛑 **ခန့်မှန်းမှုများ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
         
     elif message.text == "⏳ ကျန်ရှိချိန် စစ်ဆေးရန်":
         if not session:
@@ -237,7 +237,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                     f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
                     f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                     f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-        bot.send_message(chat_id, init_text)
+        bot.send_message(chat_id, init_text, reply_markup=get_control_keyboard())
     else:
         t = time.gmtime()
         date_str = time.strftime("%Y%m%d", t)
@@ -248,7 +248,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                     f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
                     f"🔮 ခန့်မှန်းချက်: BIG\n" \
                     f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-        bot.send_message(chat_id, init_text)
+        bot.send_message(chat_id, init_text, reply_markup=get_control_keyboard())
         last_processed_issue = str(int(next_issue) - 1)
         last_prediction = "BIG"
 
@@ -259,7 +259,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                 data = res.json()
                 if not data or data.get('status') != True:
                     user_sessions[chat_id]["step"] = "stopped"
-                    bot.send_message(chat_id, "⚠️ **Admin မှ ခွင့်ပြုချက်ပိတ်လိုက်ပါပြီ (သို့မဟုတ်) အချိန်ကုန်ဆုံးသွားပါပြီ။**\n\nဘော့အလုပ်လုပ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ။", parse_mode="Markdown")
+                    bot.send_message(chat_id, "⚠️ **Admin မှ ခွင့်ပြုချက်ပိတ်လိုက်ပါပြီ (သို့မဟုတ်) အချိန်ကုန်ဆုံးသွားပါပြီ။**\n\nဘော့အလုပ်လုပ်ခြင်းကို ရပ်တန့်လိုက်ပါပြီ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
                     break
 
             time.sleep(10)
@@ -277,7 +277,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                                       f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
                                       f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
                                       f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
-                        bot.send_message(chat_id, result_text)
+                        bot.send_message(chat_id, result_text, reply_markup=get_control_keyboard())
                     
                     last_processed_issue = current_issue
                     next_issue = str(int(current_issue) + 1)
@@ -294,7 +294,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                                 f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                                 f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
                     
-                    bot.send_message(chat_id, next_text)
+                    bot.send_message(chat_id, next_text, reply_markup=get_control_keyboard())
         except Exception as e:
             print(f"Loop Error: {e}")
 
