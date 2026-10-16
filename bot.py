@@ -5,7 +5,7 @@ import random
 import threading
 from flask import Flask
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 # User Bot Token
 TOKEN = "8785462549:AAEDI_fiJJXAOaVFFWhGChGQT3VnmzskDWQ"
@@ -23,6 +23,15 @@ API_HEADERS = {
     'Referer': 'https://hgnice.biz/',
     'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
 }
+
+# အမြဲပေါ်နေမည့် Reply Keyboard (Control Menu)
+def get_control_keyboard():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, persistent=True)
+    markup.row(
+        KeyboardButton("⏳ ကျန်ရှိချိန် စစ်ဆေးရန်"),
+        KeyboardButton("🛑 ရပ်ရန် (Stop)")
+    )
+    return markup
 
 @app.route('/')
 def home():
@@ -129,7 +138,6 @@ def select_formula(call):
     if chat_id not in user_sessions:
         user_sessions[chat_id] = {}
         
-    # Firebase မှ user ရဲ့ status နှင့် expiry ကို စစ်ဆေးမည်
     check_id = user_sessions[chat_id].get("check_id")
     try:
         res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=5)
@@ -150,26 +158,25 @@ def select_formula(call):
     bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
+    # ခလုတ်အသစ် (Reply Keyboard) ပေါ်လာစေရန် စာတစ်စောင်ပို့မည်
+    bot.send_message(chat_id, f"👇 အောက်ပါခလုတ်များကို အသုံးပြုနိုင်ပါပြီ -", reply_markup=get_control_keyboard())
+
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num, session_token)).start()
 
-@bot.callback_query_handler(func=lambda call: call.data in ["stop_bot", "check_admin_time"])
-def handle_control_buttons(call):
-    chat_id = call.message.chat.id
+# အောက်ခြေခလုတ်များ (Reply Keyboard) ကို လက်ခံဆောင်ရွက်ပေးခြင်း
+@bot.message_handler(func=lambda message: message.text in ["⏳ ကျန်ရှိချိန် စစ်ဆေးရန်", "🛑 ရပ်ရန် (Stop)"])
+def handle_reply_buttons(message):
+    chat_id = message.chat.id
     session = user_sessions.get(chat_id)
     
-    if call.data == "stop_bot":
+    if message.text == "🛑 ရပ်ရန် (Stop)":
         if session:
             session["step"] = "stopped"
-        bot.answer_callback_query(call.id, text="🛑 ဘော့ကို ရပ်တန့်လိုက်ပါပြီ။")
-        try:
-            bot.edit_message_text("🛑 **ခန့်မှန်းမှုများ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", 
-                                  chat_id=chat_id, message_id=call.message.message_id, parse_mode="Markdown")
-        except:
-            bot.send_message(chat_id, "🛑 **ခန့်မှန်းမှုများ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown")
-            
-    elif call.data == "check_admin_time":
+        bot.send_message(chat_id, "🛑 **ခန့်မှန်းမှုများ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown")
+        
+    elif message.text == "⏳ ကျန်ရှိချိန် စစ်ဆေးရန်":
         if not session:
-            bot.answer_callback_query(call.id, text="အချက်အလက် မရှိပါ။", show_alert=True)
+            bot.send_message(chat_id, "အချက်အလက် မရှိပါ။ ကျေးဇူးပြု၍ /start ဖြင့် အစမှစပါ။")
             return
             
         check_id = session.get("check_id")
@@ -177,33 +184,25 @@ def handle_control_buttons(call):
             res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=5)
             data = res.json()
             if not data or data.get('status') != True:
-                bot.answer_callback_query(call.id, text="❌ Admin မှ အချိန်ပိတ်ထားပါပြီ သို့မဟုတ် ခွင့်ပြုချက်မရှိပါ။", show_alert=True)
+                bot.send_message(chat_id, "❌ Admin မှ အချိန်ပိတ်ထားပါပြီ သို့မဟုတ် ခွင့်ပြုချက်မရှိပါ။")
                 return
                 
-            # Admin Bot ဘက်က သတ်မှတ်ထားသော အချိန်စနစ် (သို့မဟုတ် 24နာရီ သတ်မှတ်ချက်) ကို စစ်ဆေးခြင်း
             created_at = data.get('createdAt', int(time.time() * 1000))
-            # ဥပမာ - ၁ ရက် (၂၄ နာရီ) ခွင့်ပြုသည်ဟု သတ်မှတ်ပါက
             expire_time = created_at + (24 * 60 * 60 * 1000)
             remaining_ms = expire_time - int(time.time() * 1000)
             
             if remaining_ms <= 0:
-                bot.answer_callback_query(call.id, text="⏰ Admin ခွင့်ပြုထားသော အချိန်ကုန်ဆုံးသွားပါပြီ။", show_alert=True)
+                bot.send_message(chat_id, "⏰ Admin ခွင့်ပြုထားသော အချိန်ကုန်ဆုံးသွားပါပြီ။")
             else:
                 rem_hours = remaining_ms // (1000 * 60 * 60)
                 rem_mins = (remaining_ms // (1000 * 60)) % 60
-                bot.answer_callback_query(call.id, text=f"⏳ ကျန်ရှိသော အချိန်: {rem_hours} နာရီ {rem_mins} မိနစ်", show_alert=True)
+                bot.send_message(chat_id, f"⏳ ကျန်ရှိသော အချိန်: {rem_hours} နာရီ {rem_mins} မိနစ်")
         except Exception as e:
-            bot.answer_callback_query(call.id, text="အချိန်စစ်ဆေး၍ မရပါ။", show_alert=True)
+            bot.send_message(chat_id, "အချိန်စစ်ဆေး၍ မရပါ။")
 
 def run_prediction_loop(chat_id, formula_num, session_token):
     api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
     
-    markup = InlineKeyboardMarkup()
-    markup.row(
-        InlineKeyboardButton("⏳ ကျန်ရှိချိန် စစ်ဆေးရန်", callback_data="check_admin_time"),
-        InlineKeyboardButton("🛑 ရပ်ရန် (Stop)", callback_data="stop_bot")
-    )
-
     last_processed_issue = None
     last_prediction = "BIG"
     check_id = user_sessions.get(chat_id, {}).get("check_id")
@@ -221,7 +220,6 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    # ပထမအကြိမ် ဒေတာအစစ်ကို ဆွဲထုတ်ခြင်း
     first_item = fetch_latest_data()
     if first_item:
         current_issue = str(first_item.get('issueNumber'))
@@ -240,7 +238,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                     f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
                     f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                     f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-        bot.send_message(chat_id, init_text, reply_markup=markup)
+        bot.send_message(chat_id, init_text)
     else:
         t = time.gmtime()
         date_str = time.strftime("%Y%m%d", t)
@@ -251,13 +249,12 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                     f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
                     f"🔮 ခန့်မှန်းချက်: BIG\n" \
                     f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-        bot.send_message(chat_id, init_text, reply_markup=markup)
+        bot.send_message(chat_id, init_text)
         last_processed_issue = str(int(next_issue) - 1)
         last_prediction = "BIG"
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
         try:
-            # Firebase မှ Admin မှ အချိန်ပိတ်လိုက်ခြင်း ရှိမရှိ အမြဲစစ်ဆေးမည်
             if check_id:
                 res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=5)
                 data = res.json()
@@ -298,7 +295,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                                 f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                                 f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
                     
-                    bot.send_message(chat_id, next_text, reply_markup=markup)
+                    bot.send_message(chat_id, next_text)
         except Exception as e:
             print(f"Loop Error: {e}")
 
