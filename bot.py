@@ -158,7 +158,6 @@ def select_formula(call):
     bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
-    # မီနူးခလုတ်များကို ပေါ်လာစေရန် ပို့ပေးခြင်း
     bot.send_message(chat_id, f"👇 အောက်ပါ မီနူးခလုတ်များကို အသုံးပြုနိုင်ပါပြီ -", reply_markup=get_control_keyboard())
 
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num, session_token)).start()
@@ -307,6 +306,9 @@ if __name__ == "__main__":
     flask_thread.daemon = True
     flask_thread.start()
 
+    # Webhook အဟောင်းများကို သေချာစွာ ရှင်းထုတ်ပေးခြင်း
     bot.remove_webhook()
+    time.sleep(1)
+    
     print("Bot is running with Infinity Polling...")
     bot.infinity_polling(skip_pending=True)
