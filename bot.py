@@ -14,7 +14,7 @@ bot = telebot.TeleBot(TOKEN, threaded=False)
 # Flask App
 app = Flask(__name__)
 
-# Admin Bot တွင် အသုံးပြုခဲ့သော တိကျမှန်ကန်သည့် Database URL
+# Firebase Realtime Database URL
 FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.app"
 
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
@@ -22,7 +22,7 @@ user_sessions = {}
 
 # API Headers များ
 API_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9',
     'Referer': 'https://hgnice.biz/'
@@ -149,23 +149,29 @@ def select_formula(call):
     
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
 
-# 5. API ချိတ်ဆက်မှုကို ဆွဲထုတ်မည့် Loop (Multiple Endpoints)
+# 5. တိကျသော API Endpoints များဖြင့် ဒေတာဆွဲထုတ်မည့် Loop
 def run_prediction_loop(chat_id, formula_num):
     last_processed_issue = None
     last_prediction = None
     
+    # အလုပ်လုပ်နိုင်သော API လိပ်စာအသစ်များ
     api_urls = [
+        "https://api.hgnice.biz/api/webapi/GetNoaverageEmerdList",
         "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json",
-        "https://api.hgnice.biz/api/webapi/GetNoaverageEmerdList"
+        "https://api.bdgwin.org/api/webapi/GetNoaverageEmerdList"
     ]
     
     success = False
     for api_url in api_urls:
         for _ in range(2):
             try:
-                res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=8)
+                payload = {"pageSize": 10, "pageNo": 1, "typeId": 30} # hgnice/bdgwin ပုံစံအတွက်
+                if "ar-lottery" in api_url:
+                    res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=8)
+                else:
+                    res = requests.post(api_url, json=payload, headers=API_HEADERS, timeout=8)
+                    
                 data = res.json()
-                
                 list_data = []
                 if 'data' in data and isinstance(data['data'], dict):
                     list_data = data['data'].get('list', [])
@@ -174,7 +180,7 @@ def run_prediction_loop(chat_id, formula_num):
                 
                 if len(list_data) > 0:
                     current_issue = str(list_data[0].get('issueNumber') or list_data[0].get('issue') or list_data[0].get('period'))
-                    actual_num = int(list_data[0].get('number') or list_data[0].get('winningNumber') or 0)
+                    actual_num = int(list_data[0].get('number') or list_data[0].get('winningNumber') or list_data[0].get('price') or 0)
                     
                     last_processed_issue = current_issue
                     next_issue = str(int(current_issue) + 1)
@@ -196,7 +202,7 @@ def run_prediction_loop(chat_id, formula_num):
             break
             
     if not success:
-        bot.send_message(chat_id, "⚠️ API ချိတ်ဆက်ရာတွင် အခက်အခဲရှိနေပါသည်။ ဆက်လက်ကြိုးစားနေပါမည်။")
+        bot.send_message(chat_id, "⚠️ API ချိတ်ဆက်မှုကို ဆက်လက်ရှာဖွေနေဆဲဖြစ်ပါသည်။ ခဏနေပါက အလိုအလျောက် စတင်သွားပါမည်။")
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running":
         try:
@@ -206,7 +212,12 @@ def run_prediction_loop(chat_id, formula_num):
             
             for api_url in api_urls:
                 try:
-                    res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=8)
+                    payload = {"pageSize": 10, "pageNo": 1, "typeId": 30}
+                    if "ar-lottery" in api_url:
+                        res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=8)
+                    else:
+                        res = requests.post(api_url, json=payload, headers=API_HEADERS, timeout=8)
+                        
                     data = res.json()
                     list_data = []
                     if 'data' in data and isinstance(data['data'], dict):
@@ -216,7 +227,7 @@ def run_prediction_loop(chat_id, formula_num):
                         
                     if len(list_data) > 0:
                         current_issue = str(list_data[0].get('issueNumber') or list_data[0].get('issue') or list_data[0].get('period'))
-                        actual_num = int(list_data[0].get('number') or list_data[0].get('winningNumber') or 0)
+                        actual_num = int(list_data[0].get('number') or list_data[0].get('winningNumber') or list_data[0].get('price') or 0)
                         break
                 except:
                     continue
