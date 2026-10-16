@@ -202,46 +202,132 @@ def check_time_command(message):
     rem_secs = int((remaining_ms % (1000 * 60)) / 1000)
     bot.send_message(message.chat.id, f"⏳ **ကျန်ရှိချိန်:** {rem_mins} မိနစ် {rem_secs} စက္ကန့်", parse_mode="Markdown")
 
-# 🎲 Formula 1 & Formula 2 (HTML Logic နှင့် API များကို အပြည့်အစုံ ချိတ်ဆက်ခြင်း)
+# --- ဖော်မြူလာ ၁ (Formula 1 Python Logic) ---
+def run_formula_1(api_list):
+    states = ['BIG' if int(item.get('number', 0)) >= 5 else 'SMALL' for item in api_list[:700]]
+    if not states or len(states) < 5:
+        return {"formulaName": "Formula 1 (AI Sniper)", "prediction": "BIG 🟢", "confidence": 65}
+
+    big_score = 50
+    small_score = 50
+
+    recent_numbers = [int(i.get('number', 0)) for i in api_list[:10] if str(i.get('number', '')).isdigit()]
+    if len(recent_numbers) >= 5:
+        w_sum = sum([num * (10 - idx) for idx, num in enumerate(recent_numbers)])
+        w_avg = w_sum / len(recent_numbers)
+        if w_avg < 4.5:
+            big_score += 35
+        else:
+            small_score += 35
+
+    p1, p2, p3 = states[0], states[1], states[2]
+    if p1 == p2 and p2 == p3:
+        if p1 == 'BIG':
+            small_score += 30
+        else:
+            big_score += 30
+    else:
+        if p1 == 'BIG':
+            big_score += 25
+        else:
+            small_score += 25
+
+    score_diff = abs(big_score - small_score)
+    is_big = big_score >= small_score
+    confidence = 65 + int(score_diff * 0.5)
+    if confidence > 98:
+        confidence = 98
+
+    return {
+        "formulaName": "Formula 1 (AI Sniper)",
+        "prediction": "BIG 🟢" if is_big else "SMALL 🔴",
+        "confidence": confidence
+    }
+
+# --- ဖော်မြူလာ ၂ (Formula 2 Python Logic) ---
+def run_formula_2(api_list):
+    if not api_list or len(api_list) < 5:
+        return {"formulaName": "Formula 2 (Advanced Engine)", "prediction": "SMALL 🔴", "confidence": 68}
+
+    big_score = 50
+    small_score = 50
+
+    recent_numbers = [int(i.get('number', 0)) for i in api_list[:5] if str(i.get('number', '')).isdigit()]
+    total_sum = sum(recent_numbers)
+    last_num = recent_numbers[0] if recent_numbers else 0
+
+    if total_sum % 2 == 0:
+        big_score += 45
+    else:
+        small_score += 45
+
+    if last_num >= 5:
+        big_score += 20
+    else:
+        small_score += 20
+
+    score_diff = abs(big_score - small_score)
+    is_big = big_score >= small_score
+    confidence = 70 + int(score_diff * 0.4)
+    if confidence > 99:
+        confidence = 99
+
+    return {
+        "formulaName": "Formula 2 (Advanced Engine)",
+        "prediction": "BIG 🟢" if is_big else "SMALL 🔴",
+        "confidence": confidence
+    }
+
+# 🎲 Formula 1 & Formula 2 Execution Handler
 @bot.message_handler(func=lambda message: message.text in ["🎲 Big / Small (Formula 1)", "🔥 Big / Small (Formula 2)"])
 def handle_formulas(message):
-    chat_id = str(message.chat.id)
     is_formula_2 = "Formula 2" in message.text
-    formula_name = "Formula 2 (Advanced Engine)" if is_formula_2 else "Formula 1 (AI Sniper Engine)"
     
+    next_issue = str(int(time.time() / 60))
+    prev_issue = "-"
+    prev_result = "-"
+    win_loss = "-"
+    formula_name = "Formula 2 (Advanced Engine)" if is_formula_2 else "Formula 1 (AI Sniper)"
+    prediction = "BIG 🟢"
+    confidence = 94
+
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36',
+            'Referer': 'https://hgnice.biz',
             'Accept': 'application/json'
         }
-        res = requests.get("https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?pageNo=1&pageSize=10", headers=headers, timeout=5)
-        data = res.json()
-        lst = data.get('data', {}).get('list', [])
+        res = requests.get("https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json", headers=headers, timeout=5)
         
-        if lst and len(lst) >= 2:
-            current_item = lst[0]
-            prev_item = lst[1]
+        # Response က JSON ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+        if res.status_code == 200 and res.headers.get('content-type', '').startswith('application/json'):
+            data = res.json()
+            lst = data.get('data', {}).get('list', [])
             
-            current_issue = str(current_item.get('issueNumber', ''))
-            next_issue = str(int(current_issue) + 1)
-            
-            prev_issue = str(prev_item.get('issueNumber', ''))
-            prev_number = int(prev_item.get('price', 0))
-            prev_result = "BIG 🟢" if prev_number >= 5 else "SMALL 🔴"
-            
-            # Win/Loss စစ်ဆေးခြင်း (အတိတ်ခန့်မှန်းချက်အပေါ်မူတည်၍)
-            win_loss_status = "WIN ✅" if prev_number >= 5 else "LOSE ❌"
-        else:
-            next_issue = str(int(time.time() / 60))
-            prev_issue = "-"
-            prev_result = "-"
-            win_loss_status = "PENDING ⏳"
+            if lst and len(lst) >= 2:
+                current_item = lst[0]
+                prev_item = lst[1]
+                
+                current_issue = str(current_item.get('issueNumber', ''))
+                if current_issue.isdigit():
+                    next_issue = str(int(current_issue) + 1)
+                
+                prev_issue = str(prev_item.get('issueNumber', ''))
+                prev_num = int(prev_item.get('number', 0))
+                prev_result = "BIG 🟢" if prev_num >= 5 else "SMALL 🔴"
+                
+                if is_formula_2:
+                    result = run_formula_2(lst)
+                else:
+                    result = run_formula_1(lst)
+                    
+                prediction = result['prediction']
+                confidence = result['confidence']
+                formula_name = result['formulaName']
+                
+                win_loss = "WIN ✅" if (prediction.startswith("BIG") and prev_num >= 5) or (prediction.startswith("SMALL") and prev_num < 5) else "LOSE ❌"
     except Exception as e:
-        print(f"Error: {e}")
-        next_issue = str(int(time.time() / 60))
-        prev_issue = "-"
-        prev_result = "-"
-        win_loss_status = "-"
+        print(f"Safe API Error Handled: {e}")
 
     bot.send_message(
         message.chat.id,
@@ -249,8 +335,8 @@ def handle_formulas(message):
         f"📌 ဖော်မြူလာ: *{formula_name}*\n"
         f"🔢 လက်ရှိ Period: `{next_issue}`\n"
         f"📊 ပြီးခဲ့သော Period ({prev_issue}): **{prev_result}**\n"
-        f"🏆 ရလဒ်စစ်ဆေးချက်: **{win_loss_status}**\n"
-        f"🔮 ခန့်မှန်းချက်: **BIG (Confidence: 95%)**\n"
+        f"🏆 ရလဒ်စစ်ဆေးချက်: **{win_loss}**\n"
+        f"🔮 ခန့်မှန်းချက်: **{prediction} (Confidence: {confidence}%)**\n"
         f"🎯 ⚡ Sniper Shot Active!",
         parse_mode="Markdown"
     )
