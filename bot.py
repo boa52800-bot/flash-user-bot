@@ -20,9 +20,9 @@ FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.a
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
 
-# API Headers အသစ်များ (Block မခံရအောင် ပိုမိုကောင်းမွန်အောင် ပြင်ဆင်ထားသည်)
+# API Headers များ
 API_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'en-US,en;q=0.9',
     'Referer': 'https://hgnice.biz/'
@@ -149,12 +149,11 @@ def select_formula(call):
     
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
 
-# 5. API ချိတ်ဆက်မှုကို ဆွဲထုတ်မည့် Loop (Alternative API Endpoints များပါ ထည့်သွင်းထားသည်)
+# 5. API ချိတ်ဆက်မှုကို ဆွဲထုတ်မည့် Loop (Multiple Endpoints)
 def run_prediction_loop(chat_id, formula_num):
     last_processed_issue = None
     last_prediction = None
     
-    # API URLs အလှည့်ကျ သုံးရန်
     api_urls = [
         "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json",
         "https://api.hgnice.biz/api/webapi/GetNoaverageEmerdList"
@@ -167,7 +166,6 @@ def run_prediction_loop(chat_id, formula_num):
                 res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=8)
                 data = res.json()
                 
-                # Response ပုံစံအမျိုးမျိုးအတွက် အံဝင်ခွင်ကျဖြစ်စေရန်
                 list_data = []
                 if 'data' in data and isinstance(data['data'], dict):
                     list_data = data['data'].get('list', [])
