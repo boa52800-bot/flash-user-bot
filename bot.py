@@ -20,10 +20,12 @@ FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.a
 # အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
 
-# TRX WinGo API အတွက် Headers
+# API Headers အသစ်များ (Block မခံရအောင် ပိုမိုကောင်းမွန်အောင် ပြင်ဆင်ထားသည်)
 API_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Referer': 'https://hgnice.biz'
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'en-US,en;q=0.9',
+    'Referer': 'https://hgnice.biz/'
 }
 
 @app.route(f'/{TOKEN}', methods=['POST'])
@@ -45,7 +47,6 @@ def home():
 def send_welcome(message):
     chat_id = message.chat.id
     
-    # ဤ Telegram ID ဖြင့် Firebase ထဲတွင် Check ID ရှိပြီးသားလား စစ်ဆေးခြင်း
     try:
         res = requests.get(f"{FIREBASE_URL}/users.json")
         users = res.json()
@@ -148,73 +149,101 @@ def select_formula(call):
     
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
 
-# 5. API ချိတ်ဆက်မှုကို ဆွဲထုတ်မည့် Loop
+# 5. API ချိတ်ဆက်မှုကို ဆွဲထုတ်မည့် Loop (Alternative API Endpoints များပါ ထည့်သွင်းထားသည်)
 def run_prediction_loop(chat_id, formula_num):
     last_processed_issue = None
     last_prediction = None
     
+    # API URLs အလှည့်ကျ သုံးရန်
+    api_urls = [
+        "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json",
+        "https://api.hgnice.biz/api/webapi/GetNoaverageEmerdList"
+    ]
+    
     success = False
-    for _ in range(3):
-        try:
-            res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
-            data = res.json()
-            list_data = data.get('data', {}).get('list', [])
-            
-            if len(list_data) > 0:
-                current_issue = list_data[0]['issueNumber']
-                actual_num = int(list_data[0]['number'])
+    for api_url in api_urls:
+        for _ in range(2):
+            try:
+                res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=8)
+                data = res.json()
                 
-                last_processed_issue = current_issue
-                next_issue = str(int(current_issue) + 1)
+                # Response ပုံစံအမျိုးမျိုးအတွက် အံဝင်ခွင်ကျဖြစ်စေရန်
+                list_data = []
+                if 'data' in data and isinstance(data['data'], dict):
+                    list_data = data['data'].get('list', [])
+                elif 'data' in data and isinstance(data['data'], list):
+                    list_data = data['data']
                 
-                predicted_state = "BIG" if actual_num >= 5 else "SMALL"
-                last_prediction = predicted_state
-                
-                init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                            f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
-                            f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
-                            f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-                bot.send_message(chat_id, init_text)
-                success = True
-                break
-        except Exception as e:
-            print(f"Retry Error: {e}")
-            time.sleep(2)
+                if len(list_data) > 0:
+                    current_issue = str(list_data[0].get('issueNumber') or list_data[0].get('issue') or list_data[0].get('period'))
+                    actual_num = int(list_data[0].get('number') or list_data[0].get('winningNumber') or 0)
+                    
+                    last_processed_issue = current_issue
+                    next_issue = str(int(current_issue) + 1)
+                    
+                    predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+                    last_prediction = predicted_state
+                    
+                    init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
+                                f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
+                                f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
+                                f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
+                    bot.send_message(chat_id, init_text)
+                    success = True
+                    break
+            except Exception as e:
+                print(f"API Error: {e}")
+                time.sleep(1)
+        if success:
+            break
             
     if not success:
-        bot.send_message(chat_id, "⚠️ API ချိတ်ဆက်ရာတွင် အခက်အခဲရှိနေပါသည်။ သို့သော် ဆက်လက်စောင့်ကြည့်နေပါမည်။")
+        bot.send_message(chat_id, "⚠️ API ချိတ်ဆက်ရာတွင် အခက်အခဲရှိနေပါသည်။ ဆက်လက်ကြိုးစားနေပါမည်။")
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running":
         try:
             time.sleep(12)
-            res = requests.get(f"https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=10)
-            data = res.json()
-            list_data = data.get('data', {}).get('list', [])
+            current_issue = None
+            actual_num = 0
             
-            if len(list_data) > 0:
-                current_issue = list_data[0]['issueNumber']
-                actual_num = int(list_data[0]['number'])
+            for api_url in api_urls:
+                try:
+                    res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=8)
+                    data = res.json()
+                    list_data = []
+                    if 'data' in data and isinstance(data['data'], dict):
+                        list_data = data['data'].get('list', [])
+                    elif 'data' in data and isinstance(data['data'], list):
+                        list_data = data['data']
+                        
+                    if len(list_data) > 0:
+                        current_issue = str(list_data[0].get('issueNumber') or list_data[0].get('issue') or list_data[0].get('period'))
+                        actual_num = int(list_data[0].get('number') or list_data[0].get('winningNumber') or 0)
+                        break
+                except:
+                    continue
+            
+            if current_issue and current_issue != last_processed_issue:
                 actual_state = "BIG" if actual_num >= 5 else "SMALL"
                 
-                if current_issue != last_processed_issue:
-                    if last_prediction and last_processed_issue:
-                        is_win = (last_prediction == actual_state)
-                        result_text = f"🎯 ပွဲစဉ်: {last_processed_issue}\n" \
-                                      f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
-                                      f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
-                                      f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
-                        bot.send_message(chat_id, result_text)
-                    
-                    last_processed_issue = current_issue
-                    next_issue = str(int(current_issue) + 1)
-                    predicted_state = "BIG" if actual_num >= 5 else "SMALL"
-                    last_prediction = predicted_state
-                    
-                    next_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                                f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
-                                f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
-                                f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-                    bot.send_message(chat_id, next_text)
+                if last_prediction and last_processed_issue:
+                    is_win = (last_prediction == actual_state)
+                    result_text = f"🎯 ပွဲစဉ်: {last_processed_issue}\n" \
+                                  f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
+                                  f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
+                                  f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
+                    bot.send_message(chat_id, result_text)
+                
+                last_processed_issue = current_issue
+                next_issue = str(int(current_issue) + 1)
+                predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+                last_prediction = predicted_state
+                
+                next_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
+                            f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
+                            f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
+                            f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
+                bot.send_message(chat_id, next_text)
         except Exception as e:
             print(f"Loop Error: {e}")
 
