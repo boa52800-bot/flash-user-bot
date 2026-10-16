@@ -284,11 +284,11 @@ def handle_formulas(message):
     )
 
 if __name__ == "__main__":
-    RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
-    if RENDER_URL:
-        bot.remove_webhook()
-        bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
-        print(f"Webhook set to: {RENDER_URL}/{TOKEN}")
+    RENDER_URL = "https://flash-user-bot.onrender.com"
+    
+    bot.remove_webhook()
+    bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
+    print(f"Webhook set to: {RENDER_URL}/{TOKEN}")
 
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
