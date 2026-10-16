@@ -204,10 +204,6 @@ def check_time_command(message):
 
 # --- ဖော်မြူလာ ၁ (Formula 1 Logic) ---
 def run_formula_1(api_list):
-    states = ['BIG' if int(item.get('number', 0)) >= 5 else 'SMALL' for item in api_list[:700]]
-    if not states or len(states) < 5:
-        return {"formulaName": "Formula 1 (AI Sniper)", "prediction": "BIG 🟢", "confidence": 65}
-
     big_score = 50
     small_score = 50
     recent_numbers = [int(i.get('number', 0)) for i in api_list[:10] if str(i.get('number', '')).isdigit()]
@@ -261,7 +257,7 @@ def run_formula_2(api_list):
         "confidence": confidence
     }
 
-# 🎲 Formula 1 & Formula 2 Execution Handler
+# 🎲 Formula 1 & Formula 2 Execution Handler (HTML ပုံစံ Period နံပါတ်အတိုင်း ယူခြင်း)
 @bot.message_handler(func=lambda message: message.text in ["🎲 Big / Small (Formula 1)", "🔥 Big / Small (Formula 2)"])
 def handle_formulas(message):
     is_formula_2 = "Formula 2" in message.text
@@ -294,11 +290,12 @@ def handle_formulas(message):
                 latest_item = lst[0]
                 prev_item = lst[1]
                 
+                # HTML ထဲကကဲ့သို့ တိကျသော Period နံပါတ်အရှည် ယူခြင်း
                 latest_issue_str = str(latest_item.get('issueNumber', ''))
                 if latest_issue_str.isdigit():
                     next_issue = str(int(latest_issue_str) + 1)
                 else:
-                    next_issue = str(int(time.time() / 60))
+                    next_issue = str(int(time.time() * 1000))
 
                 prev_issue = str(prev_item.get('issueNumber', ''))
                 prev_num = int(prev_item.get('number', 0))
@@ -319,21 +316,21 @@ def handle_formulas(message):
                 else:
                     win_loss = "LOSE ❌"
             else:
-                next_issue = str(int(time.time() / 60))
+                next_issue = str(int(time.time() * 1000))
         else:
-            next_issue = str(int(time.time() / 60))
+            next_issue = str(int(time.time() * 1000))
     except Exception as e:
         print(f"TRX API Fetch Error: {e}")
-        next_issue = str(int(time.time() / 60))
+        next_issue = str(int(time.time() * 1000))
 
     bot.send_message(
         message.chat.id,
         f"🎯 **FLASH TRX • SNIPER AI**\n"
         f"📌 ဖော်မြူလာ: *{formula_name}*\n"
-        f"🔢 လက်ရှိ Period: `{next_issue}`\n"
+        f"🔢 PERIOD: `{next_issue}`\n"
         f"📊 ပြီးခဲ့သော Period ({prev_issue}): **{prev_result}**\n"
         f"🏆 အနိုင်/အရှုံး: **{win_loss}**\n"
-        f"🔮 ခန့်မှန်းချက်: **{prediction} (Confidence: {confidence}%)**\n"
+        f"🔮 BS PREDICTION: **{prediction} • {confidence}%**\n"
         f"🎯 ⚡ Sniper Shot Active!",
         parse_mode="Markdown"
     )
