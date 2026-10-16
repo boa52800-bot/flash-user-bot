@@ -278,7 +278,7 @@ def run_formula_2(api_list):
         "confidence": confidence
     }
 
-# 🎲 Formula 1 & Formula 2 Execution Handler
+# 🎲 Formula 1 & Formula 2 Execution Handler (Timestamp ဖြင့် API ခေါ်ယူခြင်း)
 @bot.message_handler(func=lambda message: message.text in ["🎲 Big / Small (Formula 1)", "🔥 Big / Small (Formula 2)"])
 def handle_formulas(message):
     is_formula_2 = "Formula 2" in message.text
@@ -292,14 +292,15 @@ def handle_formulas(message):
     confidence = 94
 
     try:
+        url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
         headers = {
             'User-Agent': 'Mozilla/5.0 (Linux; Android 10) Chrome/139.0.0.0 Mobile Safari/537.36',
-            'Referer': 'https://hgnice.biz',
-            'Accept': 'application/json'
+            'Referer': 'https://hgnice.biz'
         }
-        res = requests.get("https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json", headers=headers, timeout=5)
+        # Timestamp ထည့်သွင်း၍ fetch လုပ်ခြင်း (JavaScript ပုံစံအတိုင်း)
+        ts_url = f"{url}?ts={int(time.time() * 1000)}"
+        res = requests.get(ts_url, headers=headers, timeout=5)
         
-        # Response က JSON ဟုတ်မဟုတ် စစ်ဆေးခြင်း
         if res.status_code == 200 and res.headers.get('content-type', '').startswith('application/json'):
             data = res.json()
             lst = data.get('data', {}).get('list', [])
@@ -325,9 +326,10 @@ def handle_formulas(message):
                 confidence = result['confidence']
                 formula_name = result['formulaName']
                 
+                # အနိုင်အရှုံး စစ်ဆေးချက် (Win / Loss)
                 win_loss = "WIN ✅" if (prediction.startswith("BIG") and prev_num >= 5) or (prediction.startswith("SMALL") and prev_num < 5) else "LOSE ❌"
     except Exception as e:
-        print(f"Safe API Error Handled: {e}")
+        print(f"TRX API Fetch Error: {e}")
 
     bot.send_message(
         message.chat.id,
