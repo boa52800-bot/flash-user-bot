@@ -8,7 +8,7 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 # User Bot Token
-TOKEN = "8785462549:AAEDI_fiJJXAOaVFFWhGChGQT3VnmzskDWQ"
+TOKEN = "8998519135:AAGPvPSCLdUZBcj6S2yO2VGuL1l_yDVsUQ8"
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
 app = Flask(__name__)
@@ -24,7 +24,7 @@ API_HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
 }
 
-# အမြဲပေါ်နေမည့် Reply Keyboard (Control Menu)
+# အကွက်လေးကို နှိပ်ရင်ပေါ်လာမည့် မီနူးခလုတ်များ
 def get_control_keyboard():
     markup = ReplyKeyboardMarkup(resize_keyboard=True, persistent=True)
     markup.row(
@@ -158,12 +158,11 @@ def select_formula(call):
     bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
-    # ခလုတ်အသစ် (Reply Keyboard) ပေါ်လာစေရန် စာတစ်စောင်ပို့မည်
-    bot.send_message(chat_id, f"👇 အောက်ပါခလုတ်များကို အသုံးပြုနိုင်ပါပြီ -", reply_markup=get_control_keyboard())
+    # မီနူးခလုတ်များကို ပေါ်လာစေရန် ပို့ပေးခြင်း
+    bot.send_message(chat_id, f"👇 အောက်ပါ မီနူးခလုတ်များကို အသုံးပြုနိုင်ပါပြီ -", reply_markup=get_control_keyboard())
 
     threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num, session_token)).start()
 
-# အောက်ခြေခလုတ်များ (Reply Keyboard) ကို လက်ခံဆောင်ရွက်ပေးခြင်း
 @bot.message_handler(func=lambda message: message.text in ["⏳ ကျန်ရှိချိန် စစ်ဆေးရန်", "🛑 ရပ်ရန် (Stop)"])
 def handle_reply_buttons(message):
     chat_id = message.chat.id
