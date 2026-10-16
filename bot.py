@@ -202,41 +202,43 @@ def check_time_command(message):
     rem_secs = int((remaining_ms % (1000 * 60)) / 1000)
     bot.send_message(message.chat.id, f"⏳ **ကျန်ရှိသောအချိန်:** {rem_mins} မိနစ် {rem_secs} စက္ကန့်", parse_mode="Markdown")
 
-# 🎲 Formula 1 & Formula 2 (API မှ ဒေတာအမှန်များကို တိုက်ရိုက်ဆွဲထုတ်ပေးခြင်း)
+# 🎲 Formula 1 & Formula 2 (Error ကင်းရှင်းစွာ API ဆွဲထုတ်ခြင်း)
 @bot.message_handler(func=lambda message: message.text in ["🎲 Big / Small (Formula 1)", "🔥 Big / Small (Formula 2)"])
 def handle_formulas(message):
     chat_id = str(message.chat.id)
     is_formula_2 = "Formula 2" in message.text
     formula_name = "Formula 2 (Advanced Engine)" if is_formula_2 else "Formula 1 (AI Sniper Engine)"
     
-    next_issue = "Loading..."
+    next_issue = "Active Period"
     last_issue = "-"
     last_result = "-"
     
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'application/json, text/plain, */*'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept': 'application/json'
         }
-        api_res = requests.get("https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json", headers=headers, timeout=5).json()
-        list_data = api_res.get('data', {}).get('list', [])
+        api_res = requests.get("https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json", headers=headers, timeout=5)
         
-        if list_data and len(list_data) > 0:
-            latest_item = list_data[0]
-            latest_issue = str(latest_item.get('issueNumber', '00000'))
-            next_issue = str(int(latest_issue) + 1)
-            
-            # ပြီးခဲ့သောပွဲ၏ ရလဒ်ကို တွက်ချက်ခြင်း (ဥပမာ sum သို့မဟုတ် price ပေါ်မူတည်၍ Big/Small)
-            price = int(latest_item.get('price', 0))
-            last_result = "BIG 🟢" if price >= 5 else "SMALL 🔴"
+        # JSON ဟုတ်မဟုတ် စစ်ဆေးခြင်း
+        if api_res.headers.get('content-type', '').startswith('application/json'):
+            data_json = api_res.json()
+            list_data = data_json.get('data', {}).get('list', [])
+            if list_data and len(list_data) > 0:
+                latest_item = list_data[0]
+                last_issue = str(latest_item.get('issueNumber', '00000'))
+                next_issue = str(int(last_issue) + 1)
+                
+                price = int(latest_item.get('price', 0))
+                last_result = "BIG 🟢" if price >= 5 else "SMALL 🔴"
     except Exception as e:
-        print(f"API Error: {e}")
+        print(f"API Fetch Error: {e}")
 
     bot.send_message(
         message.chat.id,
         f"🎯 **FLASH TRX • SNIPER AI**\n"
         f"📌 ရွေးချယ်ထားသော ဖော်မြူလာ: *{formula_name}*\n"
-        f"🔢 လက်ရှိ Period: `{next_issue}`\n"
+        f"🔢 Period: `{next_issue}`\n"
         f"📊 ပြီးခဲ့သော Period ({last_issue}): **{last_result}**\n"
         f"🔮 ခန့်မှန်းချက်: **BIG (Confidence: 94%)**\n"
         f"🎯 ⚡ Sniper Shot Active!",
