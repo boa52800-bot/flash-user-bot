@@ -36,7 +36,6 @@ def get_control_keyboard():
 def home():
     return "Flash User Bot is Running!"
 
-# ၁။ /start ခေါ်လိုက်ရင် Telegram Name တောင်းမည့် အစပိုင်း စနစ်
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
@@ -46,7 +45,7 @@ def send_welcome(message):
         time.sleep(1)
 
     try:
-        res = requests.get(f"{FIREBASE_URL}/users.json", timeout=5)
+        res = requests.get(f"{FIREBASE_URL}/users.json", timeout=3)
         users = res.json()
         existing_check_id = None
         if users:
@@ -69,7 +68,6 @@ def send_welcome(message):
     bot.send_message(chat_id, "⚡ FLASH TRX BOT ⚡\n\nအသုံးပြုရန် ကျေးဇူးပြု၍ သင့် Telegram Name ကို ရိုက်ထည့်ပေးပါ (ဥပမာ - Kyaw Kyaw)")
     user_sessions[chat_id] = {"step": "awaiting_name"}
 
-# ၂။ Telegram Name ရိုက်ထည့်လာပါက Check ID အသစ်ထုတ်ပေးပြီး Firebase သို့ သိမ်းမည့်စနစ်
 @bot.message_handler(func=lambda message: message.chat.id in user_sessions and user_sessions[message.chat.id].get("step") == "awaiting_name")
 def handle_name(message):
     chat_id = message.chat.id
@@ -88,7 +86,7 @@ def handle_name(message):
     }
     
     try:
-        requests.put(f"{FIREBASE_URL}/users/{check_id}.json", json=user_data, timeout=5)
+        requests.put(f"{FIREBASE_URL}/users/{check_id}.json", json=user_data, timeout=3)
     except Exception as e:
         print(f"Firebase Error: {e}")
 
@@ -103,7 +101,6 @@ def handle_name(message):
     
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
-# ၃။ Admin ခွင့်ပြုချက်စစ်ဆေးရန် ခလုတ်ကို နှိပ်သည့်အခါ
 @bot.callback_query_handler(func=lambda call: call.data == "check_approval")
 def verify_approval(call):
     chat_id = call.message.chat.id
@@ -116,7 +113,7 @@ def verify_approval(call):
     check_id = session["check_id"]
     
     try:
-        res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=5)
+        res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=3)
         data = res.json()
     except:
         data = None
@@ -131,25 +128,14 @@ def verify_approval(call):
         bot.edit_message_text("🎉 Admin မှ ခွင့်ပြုချက်ပေးပြီးပါပြီ။\n\nအသုံးပြုလိုသော ဖော်မြူလာကို ရွေးချယ်ပါ -", 
                               chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup)
     else:
-        bot.answer_callback_query(call.id, text="❌ Admin မှ ခွင့်ပြုချက် မပေးသေးပါ သို့မဟုတ် စောင့်ဆိုင်းနေဆဲပါ။")
+        bot.answer_callback_query(call.id, text="❌ Admin မှ ခွင့်ပြုချက် မပေးသေးပါ သို့မဟုတ် စောင့်ဆိုင်းနေဆဲပါ။", show_alert=True)
 
-# ၄။ ဖော်မြူလာရွေးချယ်ပြီး အလုပ်စတင်မည့်အပိုင်း
 @bot.callback_query_handler(func=lambda call: call.data in ["formula_1", "formula_2"])
 def select_formula(call):
     chat_id = call.message.chat.id
     
     if chat_id not in user_sessions:
         user_sessions[chat_id] = {}
-        
-    check_id = user_sessions[chat_id].get("check_id")
-    try:
-        res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=5)
-        data = res.json()
-        if not data or data.get('status') != True:
-            bot.answer_callback_query(call.id, text="❌ ခွင့်ပြုချက် မရှိတော့ပါ သို့မဟုတ် ပိတ်ထားသည်။", show_alert=True)
-            return
-    except:
-        pass
 
     formula_num = 1 if call.data == "formula_1" else 2
     session_token = str(time.time())
@@ -187,7 +173,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
     def fetch_latest_data():
         try:
             payload = {"pageSize": 10, "pageNo": 1}
-            res = requests.post(api_url, json=payload, headers=API_HEADERS, timeout=10)
+            res = requests.post(api_url, json=payload, headers=API_HEADERS, timeout=5)
             if res.status_code == 200:
                 data = res.json()
                 list_data = data.get('data', {}).get('list', [])
@@ -197,6 +183,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
+    # ပထမအကြိမ် ဒေတာဆွဲထုတ်ရာတွင် အမှားကင်းစေရန် အချိန်အခြေခံ Fallback ကိုပါ ထည့်သွင်းထားသည်
     first_item = fetch_latest_data()
     if first_item:
         current_issue = str(first_item.get('issueNumber'))
@@ -210,25 +197,19 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             
         last_processed_issue = current_issue
         last_prediction = predicted_state
-        
-        init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                    f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
-                    f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
-                    f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-        bot.send_message(chat_id, init_text, reply_markup=get_control_keyboard())
     else:
         t = time.gmtime()
         date_str = time.strftime("%Y%m%d", t)
         total_mins = t.tm_hour * 60 + t.tm_min
         next_issue = f"{date_str}{10300000 + total_mins + 1}"
-        
-        init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                    f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
-                    f"🔮 ခန့်မှန်းချက်: BIG\n" \
-                    f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-        bot.send_message(chat_id, init_text, reply_markup=get_control_keyboard())
         last_processed_issue = str(int(next_issue) - 1)
         last_prediction = "BIG"
+
+    init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
+                f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
+                f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
+                f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
+    bot.send_message(chat_id, init_text, reply_markup=get_control_keyboard())
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
         try:
