@@ -7,7 +7,6 @@ from flask import Flask
 import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# User Bot Token အသစ်
 TOKEN = "8744519803:AAFOY-LKB7cj2zXk1oLg0K3EXiH3P8i6txU"
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
@@ -183,7 +182,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    # ပထမအကြိမ် ဒေတာဆွဲထုတ်ရာတွင် အမှားကင်းစေရန် အချိန်အခြေခံ Fallback ကိုပါ ထည့်သွင်းထားသည်
+    # ဝဘ်ဆိုက်ပေါ်က တကယ့်ဒေတာအစစ်ကို ချက်ချင်းဆွဲထုတ်ခြင်း
     first_item = fetch_latest_data()
     if first_item:
         current_issue = str(first_item.get('issueNumber'))
@@ -213,7 +212,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
         try:
-            time.sleep(10)
+            time.sleep(8)  # ပွဲစဉ်အပြောင်းအလဲကို ပိုမိုမြန်ဆန်စွာ စစ်ဆေးရန် စက္ကန့် ၈ ပိုင်းဖြင့်ချိန်ညှိထားသည်
             latest_item = fetch_latest_data()
             
             if latest_item:
