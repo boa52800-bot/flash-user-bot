@@ -8,7 +8,7 @@ import telebot
 from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
 # User Bot Token အသစ်
-TOKEN = "8998519135:AAGPvPSCLdUZBcj6S2yO2VGuL1l_yDVsUQ8"
+TOKEN = "8744519803:AAFOY-LKB7cj2zXk1oLg0K3EXiH3P8i6txU"
 bot = telebot.TeleBot(TOKEN, threaded=True)
 
 app = Flask(__name__)
@@ -44,7 +44,6 @@ def send_welcome(message):
         user_sessions[chat_id]["step"] = "stopped"
         time.sleep(1)
 
-    # ဖော်မြူလာရွေးချယ်မှုကို တိုက်ရိုက်ပြသပေးမည် (စောင့်ဆိုင်းစရာမလိုတော့ပါ)
     user_sessions[chat_id] = {"step": "formula_select"}
     
     markup = InlineKeyboardMarkup()
@@ -106,7 +105,6 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    # ပထမဆုံးအကြိမ် ချက်ချင်း မက်ဆေ့ချ်ပို့မည်
     first_item = fetch_latest_data()
     if first_item:
         current_issue = str(first_item.get('issueNumber'))
