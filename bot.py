@@ -138,7 +138,6 @@ def select_formula(call):
 
     check_id = user_sessions[chat_id].get("check_id")
     
-    # Firebase မှ Admin ပေးထားသော အချိန် (Seconds) ကို ဆွဲထုတ်ခြင်း
     total_allowed_seconds = 1800  # Default 30 mins
     try:
         res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=3)
@@ -173,7 +172,6 @@ def handle_reply_buttons(message):
     
     if message.text == "🛑 ရပ်ရန် (Stop)":
         if session and session.get("step") == "running":
-            # အသုံးပြုသွားသည့် အချိန်ကို တွက်ချက်ပြီး လက်ကျန်အချိန်ကို Firebase သို့ သိမ်းဆည်းမည်
             elapsed = int(time.time() - session.get("start_time", time.time()))
             remaining = session.get("total_seconds", 1800) - elapsed
             session["total_seconds"] = max(0, remaining)
@@ -186,7 +184,7 @@ def handle_reply_buttons(message):
                 except:
                     pass
 
-        bot.send_message(chat_id, "🛑 **ခန့်မှန်းမှုများ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
+        bot.send_message(chat_id, "🛑 **ခန့်မှန်းချက်များ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
         
     elif message.text == "⏳ ကျန်ရှိချိန် စစ်ဆေးရန်":
         if session and session.get("step") == "running":
@@ -198,15 +196,13 @@ def handle_reply_buttons(message):
             else:
                 mins = remaining // 60
                 secs = remaining % 60
-                bot.send_message(chat_id, f"⏳ ကျန်ရှိသော အချိန်: `{mins} မိနစ် {secs} စက္ကန့်`", parse_mode="Markdown")
+                bot.send_message(chat_id, f"⏳ ကျန်ရှိသော အချိန်: `{mins} မိနစ် {secs} စက္ಕန့်`", parse_mode="Markdown")
         else:
             bot.send_message(chat_id, "⏳ လက်လွှတ်ဆောင်ရွက်နေသော ပွဲစဉ်များ မရှိသေးပါ။")
 
 def run_prediction_loop(chat_id, formula_num, session_token):
     api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
     
-    last_processed_issue = None
-    last_prediction = "BIG"
     formula_name = "Formula 1 (AI Sniper)" if formula_num == 1 else "Formula 2 (Advanced Engine)"
     accuracy_rate = "98.5%" if formula_num == 1 else "99.1%"
 
@@ -223,6 +219,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
+    # ပထမဆုံးအကြိမ် လက်ရှိပွဲစဉ်ကို ရယူခြင်း
     first_item = fetch_latest_data()
     if first_item:
         current_issue = str(first_item.get('issueNumber'))
@@ -244,6 +241,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
         last_processed_issue = str(int(next_issue) - 1)
         last_prediction = "BIG"
 
+    # ပထမဆုံး ခန့်မှန်းချက် ပို့ခြင်း
     init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
                 f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
                 f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
@@ -253,7 +251,6 @@ def run_prediction_loop(chat_id, formula_num, session_token):
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
         try:
-            # အချိန်ကုန်ဆုံးသွားခြင်း ရှိမရှိ စစ်ဆေးခြင်း
             session = user_sessions.get(chat_id)
             elapsed = int(time.time() - session.get("start_time", time.time()))
             remaining = session.get("total_seconds", 1800) - elapsed
@@ -266,22 +263,24 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             latest_item = fetch_latest_data()
             
             if latest_item:
-                current_issue = str(latest_item.get('issueNumber'))
+                latest_issue = str(latest_item.get('issueNumber'))
                 actual_num = int(latest_item.get('number', 0))
                 actual_state = "BIG" if actual_num >= 5 else "SMALL"
                 
-                if current_issue != last_processed_issue:
-                    if last_prediction and last_processed_issue:
-                        is_win = (last_prediction == actual_state)
-                        result_text = f"🎯 ပွဲစဉ်: {last_processed_issue}\n" \
-                                      f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
-                                      f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
-                                      f"📊 အသုံးပြုသည့်ဖော်မြူလာ: {formula_name}\n" \
-                                      f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
-                        bot.send_message(chat_id, result_text, reply_markup=get_control_keyboard())
+                # အကယ်၍ ပွဲစဉ်အသစ်ပြောင်းသွားပြီဆိုပါက ယခင်ပွဲအတွက် အနိုင်/အရှုံး စစ်ဆေးပြီး ရလဒ်ပို့မည်
+                if latest_issue > last_processed_issue:
+                    is_win = (last_prediction == actual_state)
                     
-                    last_processed_issue = current_issue
-                    next_issue = str(int(current_issue) + 1)
+                    result_text = f"🎯 ပွဲစဉ်: {last_processed_issue}\n" \
+                                  f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
+                                  f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
+                                  f"📊 အသုံးပြုသည့်ဖော်မြူလာ: {formula_name}\n" \
+                                  f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
+                    bot.send_message(chat_id, result_text, reply_markup=get_control_keyboard())
+                    
+                    # ပွဲစဉ်အသစ်အတွက် ဆက်လက်ခန့်မှန်းရန်
+                    last_processed_issue = latest_issue
+                    next_issue = str(int(latest_issue) + 1)
                     
                     if formula_num == 1:
                         predicted_state = "BIG" if actual_num >= 5 else "SMALL"
@@ -314,4 +313,3 @@ if __name__ == "__main__":
     
     print("Bot is running with Infinity Polling...")
     bot.infinity_polling(skip_pending=True, timeout=90, long_polling_timeout=5)
-
