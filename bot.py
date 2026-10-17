@@ -182,7 +182,6 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    # ဝဘ်ဆိုက်ပေါ်က တကယ့်ဒေတာအစစ်ကို ချက်ချင်းဆွဲထုတ်ခြင်း
     first_item = fetch_latest_data()
     if first_item:
         current_issue = str(first_item.get('issueNumber'))
@@ -212,7 +211,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
         try:
-            time.sleep(8)  # ပွဲစဉ်အပြောင်းအလဲကို ပိုမိုမြန်ဆန်စွာ စစ်ဆေးရန် စက္ကန့် ၈ ပိုင်းဖြင့်ချိန်ညှိထားသည်
+            time.sleep(8)
             latest_item = fetch_latest_data()
             
             if latest_item:
@@ -257,8 +256,9 @@ if __name__ == "__main__":
     flask_thread.daemon = True
     flask_thread.start()
 
+    # ပထမဆုံး Webhook နှင့် အဟောင်းများကို လုံးဝဖယ်ရှားပေးခြင်း
     bot.remove_webhook()
-    time.sleep(1)
+    time.sleep(2)
     
     print("Bot is running with Infinity Polling...")
-    bot.infinity_polling(skip_pending=True)
+    bot.infinity_polling(skip_pending=True, timeout=90, long_polling_timeout=5)
