@@ -24,7 +24,8 @@ API_HEADERS = {
 }
 
 def get_control_keyboard():
-    markup = ReplyKeyboardMarkup(resize_keyboard=True, persistent=True)
+    # Error မတက်စေရန် persistent အစား is_persistent ကို သုံးရန် (သို့မဟုတ် ဖယ်ရှားရန်)
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, is_persistent=True)
     markup.row(
         KeyboardButton("⏳ ကျန်ရှိချိန် စစ်ဆေးရန်"),
         KeyboardButton("🛑 ရပ်ရန် (Stop)")
@@ -256,9 +257,8 @@ if __name__ == "__main__":
     flask_thread.daemon = True
     flask_thread.start()
 
-    # ပထမဆုံး Webhook နှင့် အဟောင်းများကို လုံးဝဖယ်ရှားပေးခြင်း
     bot.remove_webhook()
-    time.sleep(2)
+    time.sleep(1)
     
     print("Bot is running with Infinity Polling...")
     bot.infinity_polling(skip_pending=True, timeout=90, long_polling_timeout=5)
