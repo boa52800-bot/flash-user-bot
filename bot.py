@@ -138,7 +138,7 @@ def select_formula(call):
 
     check_id = user_sessions[chat_id].get("check_id")
     
-    total_allowed_seconds = 1800  # Default 30 mins
+    total_allowed_seconds = 1800
     try:
         res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=3)
         data = res.json()
@@ -219,11 +219,10 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    # ပထမဆုံးအကြိမ် လက်ရှိပွဲစဉ်ကို ရယူခြင်း
     first_item = fetch_latest_data()
     if first_item:
-        current_issue = str(first_item.get('issueNumber'))
-        next_issue = str(int(current_issue) + 1)
+        current_issue = int(first_item.get('issueNumber'))
+        next_issue = str(current_issue + 1)
         actual_num = int(first_item.get('number', 0))
         
         if formula_num == 1:
@@ -238,10 +237,9 @@ def run_prediction_loop(chat_id, formula_num, session_token):
         date_str = time.strftime("%Y%m%d", t)
         total_mins = t.tm_hour * 60 + t.tm_min
         next_issue = f"{date_str}{10300000 + total_mins + 1}"
-        last_processed_issue = str(int(next_issue) - 1)
+        last_processed_issue = int(next_issue) - 1
         last_prediction = "BIG"
 
-    # ပထမဆုံး ခန့်မှန်းချက် ပို့ခြင်း
     init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
                 f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
                 f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
@@ -263,11 +261,11 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             latest_item = fetch_latest_data()
             
             if latest_item:
-                latest_issue = str(latest_item.get('issueNumber'))
+                latest_issue = int(latest_item.get('issueNumber'))
                 actual_num = int(latest_item.get('number', 0))
                 actual_state = "BIG" if actual_num >= 5 else "SMALL"
                 
-                # အကယ်၍ ပွဲစဉ်အသစ်ပြောင်းသွားပြီဆိုပါက ယခင်ပွဲအတွက် အနိုင်/အရှုံး စစ်ဆေးပြီး ရလဒ်ပို့မည်
+                # Integer အနေဖြင့် ပွဲစဉ်အပြောင်းအလဲကို တိကျစွာ စစ်ဆေးခြင်း
                 if latest_issue > last_processed_issue:
                     is_win = (last_prediction == actual_state)
                     
@@ -278,9 +276,8 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                                   f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
                     bot.send_message(chat_id, result_text, reply_markup=get_control_keyboard())
                     
-                    # ပွဲစဉ်အသစ်အတွက် ဆက်လက်ခန့်မှန်းရန်
                     last_processed_issue = latest_issue
-                    next_issue = str(int(latest_issue) + 1)
+                    next_issue = str(latest_issue + 1)
                     
                     if formula_num == 1:
                         predicted_state = "BIG" if actual_num >= 5 else "SMALL"
