@@ -196,7 +196,7 @@ def handle_reply_buttons(message):
             else:
                 mins = remaining // 60
                 secs = remaining % 60
-                bot.send_message(chat_id, f"⏳ ကျန်ရှိသော အချိန်: `{mins} မိနစ် {secs} စက္ಕန့်`", parse_mode="Markdown")
+                bot.send_message(chat_id, f"⏳ ကျန်ရှိသော အချိန်: `{mins} မိနစ် {secs} စက္ကန့်`", parse_mode="Markdown")
         else:
             bot.send_message(chat_id, "⏳ လက်လွှတ်ဆောင်ရွက်နေသော ပွဲစဉ်များ မရှိသေးပါ။")
 
@@ -219,33 +219,34 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
+    # စတင်ချိန်တွင် နောက်ဆုံးထွက်ပြီးသား ပွဲစဉ်ကို ရယူခြင်း
     first_item = fetch_latest_data()
     if first_item:
-        current_issue = int(first_item.get('issueNumber'))
-        next_issue = str(current_issue + 1)
+        last_target_issue = int(first_item.get('issueNumber'))
         actual_num = int(first_item.get('number', 0))
         
         if formula_num == 1:
-            predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+            last_prediction = "BIG" if actual_num >= 5 else "SMALL"
         else:
-            predicted_state = "SMALL" if actual_num >= 5 else "BIG"
-            
-        last_processed_issue = current_issue
-        last_prediction = predicted_state
+            last_prediction = "SMALL" if actual_num >= 5 else "BIG"
     else:
         t = time.gmtime()
         date_str = time.strftime("%Y%m%d", t)
         total_mins = t.tm_hour * 60 + t.tm_min
-        next_issue = f"{date_str}{10300000 + total_mins + 1}"
-        last_processed_issue = int(next_issue) - 1
+        last_target_issue = int(f"{date_str}{10300000 + total_mins}")
         last_prediction = "BIG"
 
+    # ပထမဆုံးအကြိမ် ခန့်မှန်းချက်အသစ်ကို ချက်ချင်းပို့မည် (နောင်လာမည့် ပွဲစဉ်အတွက်)
+    next_issue_str = str(last_target_issue + 1)
     init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
+                f"📌 ပွဲစဉ်အသစ်: {next_issue_str}\n" \
                 f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
                 f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
                 f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {accuracy_rate}"
     bot.send_message(chat_id, init_text, reply_markup=get_control_keyboard())
+
+    # လက်ရှိပွဲစဉ်အတွက် target ကို နောက်ပွဲသို့ တိုးမြှင့်ထားမည်
+    current_target_issue = last_target_issue + 1
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
         try:
@@ -265,30 +266,30 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                 actual_num = int(latest_item.get('number', 0))
                 actual_state = "BIG" if actual_num >= 5 else "SMALL"
                 
-                # Integer အနေဖြင့် ပွဲစဉ်အပြောင်းအလဲကို တိကျစွာ စစ်ဆေးခြင်း
-                if latest_issue > last_processed_issue:
+                # အကယ်၍ API ထဲက issue က ကျွန်ုပ်တို့စောင့်နေသော target issue ထက် ရောက်ရှိသွားပြီ (သို့မဟုတ် တူညီသွားပြီ) ဆိုပါက ရလဒ်ထွက်ပါပြီ
+                if latest_issue >= current_target_issue:
                     is_win = (last_prediction == actual_state)
                     
-                    result_text = f"🎯 ပွဲစဉ်: {last_processed_issue}\n" \
+                    # ၁။ ရလဒ် (Win / Loss) ကို အရင်ပို့မည်
+                    result_text = f"🎯 ပွဲစဉ်: {current_target_issue}\n" \
                                   f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
                                   f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
                                   f"📊 အသုံးပြုသည့်ဖော်မြူလာ: {formula_name}\n" \
                                   f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
                     bot.send_message(chat_id, result_text, reply_markup=get_control_keyboard())
                     
-                    last_processed_issue = latest_issue
-                    next_issue = str(latest_issue + 1)
-                    
+                    # ၂။ နောက်ပွဲအတွက် အသစ်ခန့်မှန်းချက် ဆက်ထုတ်မည်
                     if formula_num == 1:
-                        predicted_state = "BIG" if actual_num >= 5 else "SMALL"
+                        new_prediction = "BIG" if actual_num >= 5 else "SMALL"
                     else:
-                        predicted_state = "SMALL" if actual_num >= 5 else "BIG"
+                        new_prediction = "SMALL" if actual_num >= 5 else "BIG"
                         
-                    last_prediction = predicted_state
+                    last_prediction = new_prediction
+                    current_target_issue += 1 # နောက်တစ်ပွဲသို့ တိုးမည်
                     
                     next_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                                f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
-                                f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
+                                f"📌 ပွဲစဉ်အသစ်: {current_target_issue}\n" \
+                                f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
                                 f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
                                 f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {accuracy_rate}"
                     
