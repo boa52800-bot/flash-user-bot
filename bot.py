@@ -5,7 +5,7 @@ import random
 import threading
 from flask import Flask
 import telebot
-from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
 TOKEN = "8744519803:AAFOY-LKB7cj2zXk1oLg0K3EXiH3P8i6txU"
 bot = telebot.TeleBot(TOKEN, threaded=True)
@@ -57,8 +57,8 @@ def send_welcome(message):
             user_sessions[chat_id] = {"check_id": existing_check_id, "step": "waiting_approval"}
             text = f"✅ သင့်ရဲ့ Check ID (ရှိပြီးသား): `{existing_check_id}`\n\n" \
                    f"အထက်ပါ Check ID ကို Admin Bot သို့ ပို့၍ အချိန်ခွင့်ပြုချက် ရယူပါ။"
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
+            markup = telebot.types.InlineKeyboardMarkup()
+            markup.add(telebot.types.InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
             bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
             return
     except Exception as e:
@@ -95,8 +95,8 @@ def handle_name(message):
            f"အထက်ပါ Check ID ကို Admin Bot သို့ ပို့၍ အချိန်ခွင့်ပြုချက် ရယူပါ။\n" \
            f"ခွင့်ပြုချက်ရပြီဆိုရင် အောက်ပါ ခလုတ်ကို နှိပ်ပါ -"
     
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(telebot.types.InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
     
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
@@ -120,11 +120,11 @@ def verify_approval(call):
     if data and data.get('status') == True:
         user_sessions[chat_id]["step"] = "formula_select"
         
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("Formula 1 (AI Sniper)", callback_data="formula_1"))
-        markup.add(InlineKeyboardButton("Formula 2 (Advanced Engine)", callback_data="formula_2"))
+        markup = telebot.types.InlineKeyboardMarkup()
+        markup.add(telebot.types.InlineKeyboardButton("Formula 1 (AI Sniper)", callback_data="formula_1"))
+        markup.add(telebot.types.InlineKeyboardButton("Formula 2 (Advanced Engine)", callback_data="formula_2"))
         
-        bot.edit_message_text("🎉 Admin မှ ခွင့်ပြုချက်ပေးပြီးပါပြီ।\n\nအသုံးပြုလိုသော ဖော်မြူလာကို ရွေးချယ်ပါ -", 
+        bot.edit_message_text("🎉 Admin မှ ခွင့်ပြုချက်ပေးပြီးပါပြီ။\n\nအသုံးပြုလိုသော ဖော်မြူလာကို ရွေးချယ်ပါ -", 
                               chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup)
     else:
         bot.answer_callback_query(call.id, text="❌ Admin မှ ခွင့်ပြုချက် မပေးသေးပါ သို့မဟုတ် စောင့်ဆိုင်းနေဆဲပါ။", show_alert=True)
@@ -158,7 +158,7 @@ def select_formula(call):
     
     formula_name = "Formula 1 (AI Sniper)" if formula_num == 1 else "Formula 2 (Advanced Engine)"
     
-    bot.edit_message_text(f"🚀 {formula_name} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ।", 
+    bot.edit_message_text(f"🚀 {formula_name} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
     bot.send_message(chat_id, f"👇 အောက်ပါ မီနူးခလုတ်များကို အသုံးပြုနိုင်ပါပြီ -", reply_markup=get_control_keyboard())
@@ -184,7 +184,7 @@ def handle_reply_buttons(message):
                 except:
                     pass
 
-        bot.send_message(chat_id, "🛑 **ခန့်မှန်းချက်များ ရပ်တန့်သွားပါပြီ।**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
+        bot.send_message(chat_id, "🛑 **ခန့်မှန်းချက်များ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
         
     elif message.text == "⏳ ကျန်ရှိချိန် စစ်ဆေးရန်":
         if session and session.get("step") == "running":
@@ -192,7 +192,7 @@ def handle_reply_buttons(message):
             remaining = session.get("total_seconds", 1800) - elapsed
             if remaining <= 0:
                 session["step"] = "stopped"
-                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ।**")
+                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ။**")
             else:
                 mins = remaining // 60
                 secs = remaining % 60
@@ -229,17 +229,19 @@ def run_prediction_loop(chat_id, formula_num, session_token):
 
     current_target_issue = last_target_issue + 1
 
-    while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
+    while True:
         try:
             session = user_sessions.get(chat_id)
+            if not session or session.get("session_token") != session_token or session.get("step") != "running":
+                break
+
             elapsed = int(time.time() - session.get("start_time", time.time()))
             remaining = session.get("total_seconds", 1800) - elapsed
             if remaining <= 0:
                 session["step"] = "stopped"
-                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ। Bot ရပ်တန့်သွားပါပြီ।**", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
+                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ။**", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
                 break
-
-            time.sleep(8)
+            
             latest_item = fetch_latest_data()
             
             if latest_item:
@@ -250,7 +252,6 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                     current_target_issue += 1
                     
                     if formula_num == 1:
-                        # Big / Small ကို ညှိပြီးပြသပေးမည့် Formula 1 Logic
                         predicted_state = "BIG" if (actual_num % 2) == 0 else "SMALL"
                         acc_val = random.choice([95, 96, 97, 98, 99])
                         acc_text = "Sniper" if acc_val >= 95 else f"{acc_val}%"
@@ -266,8 +267,11 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                                 f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {acc_text}"
                     
                     bot.send_message(chat_id, next_text, reply_markup=get_control_keyboard())
+            
+            time.sleep(5)
         except Exception as e:
             print(f"Loop Error: {e}")
+            time.sleep(10)
 
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
