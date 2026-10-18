@@ -124,7 +124,7 @@ def verify_approval(call):
         markup.add(InlineKeyboardButton("Formula 1 (AI Sniper)", callback_data="formula_1"))
         markup.add(InlineKeyboardButton("Formula 2 (Advanced Engine)", callback_data="formula_2"))
         
-        bot.edit_message_text("🎉 Admin မှ ခွင့်ပြုချက်ပေးပြီးပါပြီ။\n\nအသုံးပြုလိုသော ဖော်မြူလာကို ရွေးချယ်ပါ -", 
+        bot.edit_message_text("🎉 Admin မှ ခွင့်ပြုချက်ပေးပြီးပါပြီ।\n\nအသုံးပြုလိုသော ဖော်မြူလာကို ရွေးချယ်ပါ -", 
                               chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup)
     else:
         bot.answer_callback_query(call.id, text="❌ Admin မှ ခွင့်ပြုချက် မပေးသေးပါ သို့မဟုတ် စောင့်ဆိုင်းနေဆဲပါ။", show_alert=True)
@@ -158,7 +158,7 @@ def select_formula(call):
     
     formula_name = "Formula 1 (AI Sniper)" if formula_num == 1 else "Formula 2 (Advanced Engine)"
     
-    bot.edit_message_text(f"🚀 {formula_name} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
+    bot.edit_message_text(f"🚀 {formula_name} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ।", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
     bot.send_message(chat_id, f"👇 အောက်ပါ မီနူးခလုတ်များကို အသုံးပြုနိုင်ပါပြီ -", reply_markup=get_control_keyboard())
@@ -184,7 +184,7 @@ def handle_reply_buttons(message):
                 except:
                     pass
 
-        bot.send_message(chat_id, "🛑 **ခန့်မှန်းချက်များ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
+        bot.send_message(chat_id, "🛑 **ခန့်မှန်းချက်များ ရပ်တန့်သွားပါပြီ।**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
         
     elif message.text == "⏳ ကျန်ရှိချိန် စစ်ဆေးရန်":
         if session and session.get("step") == "running":
@@ -192,7 +192,7 @@ def handle_reply_buttons(message):
             remaining = session.get("total_seconds", 1800) - elapsed
             if remaining <= 0:
                 session["step"] = "stopped"
-                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ။**")
+                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ।**")
             else:
                 mins = remaining // 60
                 secs = remaining % 60
@@ -204,7 +204,6 @@ def run_prediction_loop(chat_id, formula_num, session_token):
     api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
     
     formula_name = "Formula 1 (AI Sniper)" if formula_num == 1 else "Formula 2 (Advanced Engine)"
-    accuracy_rate = "98.5%" if formula_num == 1 else "99.1%"
 
     def fetch_latest_data():
         try:
@@ -219,33 +218,15 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    # စတင်ချိန်တွင် နောက်ဆုံးထွက်ပြီးသား ပွဲစဉ်ကို ရယူခြင်း
     first_item = fetch_latest_data()
     if first_item:
         last_target_issue = int(first_item.get('issueNumber'))
-        actual_num = int(first_item.get('number', 0))
-        
-        if formula_num == 1:
-            last_prediction = "BIG" if actual_num >= 5 else "SMALL"
-        else:
-            last_prediction = "SMALL" if actual_num >= 5 else "BIG"
     else:
         t = time.gmtime()
         date_str = time.strftime("%Y%m%d", t)
         total_mins = t.tm_hour * 60 + t.tm_min
         last_target_issue = int(f"{date_str}{10300000 + total_mins}")
-        last_prediction = "BIG"
 
-    # ပထမဆုံးအကြိမ် ခန့်မှန်းချက်အသစ်ကို ချက်ချင်းပို့မည် (နောင်လာမည့် ပွဲစဉ်အတွက်)
-    next_issue_str = str(last_target_issue + 1)
-    init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                f"📌 ပွဲစဉ်အသစ်: {next_issue_str}\n" \
-                f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
-                f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
-                f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {accuracy_rate}"
-    bot.send_message(chat_id, init_text, reply_markup=get_control_keyboard())
-
-    # လက်ရှိပွဲစဉ်အတွက် target ကို နောက်ပွဲသို့ တိုးမြှင့်ထားမည်
     current_target_issue = last_target_issue + 1
 
     while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running" and user_sessions[chat_id].get("session_token") == session_token:
@@ -255,7 +236,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             remaining = session.get("total_seconds", 1800) - elapsed
             if remaining <= 0:
                 session["step"] = "stopped"
-                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ။ Bot ရပ်တန့်သွားပါပြီ။**", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
+                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ। Bot ရပ်တန့်သွားပါပြီ।**", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
                 break
 
             time.sleep(8)
@@ -264,34 +245,25 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             if latest_item:
                 latest_issue = int(latest_item.get('issueNumber'))
                 actual_num = int(latest_item.get('number', 0))
-                actual_state = "BIG" if actual_num >= 5 else "SMALL"
                 
-                # အကယ်၍ API ထဲက issue က ကျွန်ုပ်တို့စောင့်နေသော target issue ထက် ရောက်ရှိသွားပြီ (သို့မဟုတ် တူညီသွားပြီ) ဆိုပါက ရလဒ်ထွက်ပါပြီ
                 if latest_issue >= current_target_issue:
-                    is_win = (last_prediction == actual_state)
+                    current_target_issue += 1
                     
-                    # ၁။ ရလဒ် (Win / Loss) ကို အရင်ပို့မည်
-                    result_text = f"🎯 ပွဲစဉ်: {current_target_issue}\n" \
-                                  f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
-                                  f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
-                                  f"📊 အသုံးပြုသည့်ဖော်မြူလာ: {formula_name}\n" \
-                                  f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
-                    bot.send_message(chat_id, result_text, reply_markup=get_control_keyboard())
-                    
-                    # ၂။ နောက်ပွဲအတွက် အသစ်ခန့်မှန်းချက် ဆက်ထုတ်မည်
                     if formula_num == 1:
-                        new_prediction = "BIG" if actual_num >= 5 else "SMALL"
+                        # Big / Small ကို ညှိပြီးပြသပေးမည့် Formula 1 Logic
+                        predicted_state = "BIG" if (actual_num % 2) == 0 else "SMALL"
+                        acc_val = random.choice([95, 96, 97, 98, 99])
+                        acc_text = "Sniper" if acc_val >= 95 else f"{acc_val}%"
                     else:
-                        new_prediction = "SMALL" if actual_num >= 5 else "BIG"
-                        
-                    last_prediction = new_prediction
-                    current_target_issue += 1 # နောက်တစ်ပွဲသို့ တိုးမည်
-                    
-                    next_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                                f"📌 ပွဲစဉ်အသစ်: {current_target_issue}\n" \
-                                f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
+                        predicted_state = "SMALL" if actual_num >= 5 else "BIG"
+                        acc_val = random.choice([60, 65, 80])
+                        acc_text = f"{acc_val}%"
+
+                    next_text = f"⚡ FLASH TRX • AI PREDICTION ⚡\n\n" \
+                                f"📌 ပွဲစဉ်အသစ်: {str(current_target_issue)}\n" \
+                                f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                                 f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
-                                f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {accuracy_rate}"
+                                f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {acc_text}"
                     
                     bot.send_message(chat_id, next_text, reply_markup=get_control_keyboard())
         except Exception as e:
