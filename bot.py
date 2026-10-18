@@ -217,9 +217,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    last_sent_issue = None
-
-    # Force send first prediction immediately upon starting
+    # Try fetching data immediately and send the first message without delay
     initial_item = fetch_latest_data()
     if initial_item:
         init_issue = int(initial_item.get('issueNumber', 0)) + 1
@@ -240,7 +238,12 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                      f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                      f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
                      f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {acc_text}"
-        bot.send_message(chat_id, first_text, reply_markup=get_control_keyboard())
+        try:
+            bot.send_message(chat_id, first_text, reply_markup=get_control_keyboard())
+        except Exception as e:
+            print(f"First Message Error: {e}")
+    else:
+        last_sent_issue = None
 
     while True:
         try:
@@ -283,7 +286,7 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                     
                     bot.send_message(chat_id, next_text, reply_markup=get_control_keyboard())
             
-            time.sleep(3)
+            time.sleep(5)
         except Exception as e:
             print(f"Loop Error: {e}")
             time.sleep(5)
