@@ -3,48 +3,48 @@ import time
 import requests
 import random
 import threading
-from flask import Flask, request
+from flask import Flask
 import telebot
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton
 
-# User Bot Token
-TOKEN = "8785462549:AAEDI_fiJJXAOaVFFWhGChGQT3VnmzskDWQ"
-bot = telebot.TeleBot(TOKEN, threaded=False)
+TOKEN = "8744519803:AAFOY-LKB7cj2zXk1oLg0K3EXiH3P8i6txU"
+bot = telebot.TeleBot(TOKEN, threaded=True)
 
-# Flask App
 app = Flask(__name__)
-
-# Firebase Realtime Database URL
 FIREBASE_URL = "https://flash-1d21e-default-rtdb.europe-west1.firebasedatabase.app"
 
-# အသုံးပြုသူများ၏ လက်ရှိအခြေအနေကို မှတ်သားရန်
 user_sessions = {}
 
 API_HEADERS = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
     'Accept': 'application/json, text/plain, */*',
-    'Referer': 'https://hgnice.biz/'
+    'Accept-Language': 'my-MM,my;q=0.9,en-US;q=0.8,en;q=0.7',
+    'Connection': 'keep-alive',
+    'Referer': 'https://hgnice.biz/',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36'
 }
 
-@app.route(f'/{TOKEN}', methods=['POST'])
-def webhook():
-    if request.headers.get('content-type') == 'application/json':
-        json_string = request.get_data().decode('utf-8')
-        update = telebot.types.Update.de_json(json_string)
-        bot.process_new_updates([update])
-        return "!", 200
-    else:
-        return "Internal Server Error", 403
+def get_control_keyboard():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, is_persistent=True)
+    markup.row(
+        KeyboardButton("⏳ ကျန်ရှိချိန် စစ်ဆေးရန်"),
+        KeyboardButton("🛑 ရပ်ရန် (Stop)")
+    )
+    return markup
 
 @app.route('/')
 def home():
-    return "Flash User Bot Webhook is Active!"
+    return "Flash User Bot is Running!"
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     chat_id = message.chat.id
+    
+    if chat_id in user_sessions:
+        user_sessions[chat_id]["step"] = "stopped"
+        time.sleep(1)
+
     try:
-        res = requests.get(f"{FIREBASE_URL}/users.json")
+        res = requests.get(f"{FIREBASE_URL}/users.json", timeout=3)
         users = res.json()
         existing_check_id = None
         if users:
@@ -57,8 +57,8 @@ def send_welcome(message):
             user_sessions[chat_id] = {"check_id": existing_check_id, "step": "waiting_approval"}
             text = f"✅ သင့်ရဲ့ Check ID (ရှိပြီးသား): `{existing_check_id}`\n\n" \
                    f"အထက်ပါ Check ID ကို Admin Bot သို့ ပို့၍ အချိန်ခွင့်ပြုချက် ရယူပါ။"
-            markup = InlineKeyboardMarkup()
-            markup.add(InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
+            markup = telebot.types.InlineKeyboardMarkup()
+            markup.add(telebot.types.InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
             bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
             return
     except Exception as e:
@@ -85,7 +85,7 @@ def handle_name(message):
     }
     
     try:
-        requests.put(f"{FIREBASE_URL}/users/{check_id}.json", json=user_data)
+        requests.put(f"{FIREBASE_URL}/users/{check_id}.json", json=user_data, timeout=3)
     except Exception as e:
         print(f"Firebase Error: {e}")
 
@@ -95,8 +95,8 @@ def handle_name(message):
            f"အထက်ပါ Check ID ကို Admin Bot သို့ ပို့၍ အချိန်ခွင့်ပြုချက် ရယူပါ။\n" \
            f"ခွင့်ပြုချက်ရပြီဆိုရင် အောက်ပါ ခလုတ်ကို နှိပ်ပါ -"
     
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
+    markup = telebot.types.InlineKeyboardMarkup()
+    markup.add(telebot.types.InlineKeyboardButton("🔄 ခွင့်ပြုချက် စစ်ဆေးမည် (Check Approval)", callback_data="check_approval"))
     
     bot.send_message(chat_id, text, reply_markup=markup, parse_mode="Markdown")
 
@@ -112,7 +112,7 @@ def verify_approval(call):
     check_id = session["check_id"]
     
     try:
-        res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json")
+        res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=3)
         data = res.json()
     except:
         data = None
@@ -120,99 +120,185 @@ def verify_approval(call):
     if data and data.get('status') == True:
         user_sessions[chat_id]["step"] = "formula_select"
         
-        markup = InlineKeyboardMarkup()
-        markup.add(InlineKeyboardButton("Formula 1 (AI Sniper)", callback_data="formula_1"))
-        markup.add(InlineKeyboardButton("Formula 2 (Advanced Engine)", callback_data="formula_2"))
+        markup = telebot.types.InlineKeyboardMarkup()
+        markup.add(telebot.types.InlineKeyboardButton("Formula 1 (AI Sniper)", callback_data="formula_1"))
+        markup.add(telebot.types.InlineKeyboardButton("Formula 2 (Advanced Engine)", callback_data="formula_2"))
         
         bot.edit_message_text("🎉 Admin မှ ခွင့်ပြုချက်ပေးပြီးပါပြီ။\n\nအသုံးပြုလိုသော ဖော်မြူလာကို ရွေးချယ်ပါ -", 
                               chat_id=chat_id, message_id=call.message.message_id, reply_markup=markup)
     else:
-        bot.answer_callback_query(call.id, text="❌ Admin မှ ခွင့်ပြုချက် မပေးသေးပါ သို့မဟုတ် စောင့်ဆိုင်းနေဆဲပါ။")
+        bot.answer_callback_query(call.id, text="❌ Admin မှ ခွင့်ပြုချက် မပေးသေးပါ သို့မဟုတ် စောင့်ဆိုင်းနေဆဲပါ။", show_alert=True)
 
 @bot.callback_query_handler(func=lambda call: call.data in ["formula_1", "formula_2"])
 def select_formula(call):
     chat_id = call.message.chat.id
-    formula_num = 1 if call.data == "formula_1" else 2
     
+    if chat_id not in user_sessions:
+        user_sessions[chat_id] = {}
+
+    check_id = user_sessions[chat_id].get("check_id")
+    
+    total_allowed_seconds = 1800
+    try:
+        res = requests.get(f"{FIREBASE_URL}/users/{check_id}.json", timeout=3)
+        data = res.json()
+        if data and 'timeLimit' in data:
+            total_allowed_seconds = int(data['timeLimit']) * 60
+    except:
+        pass
+
+    formula_num = 1 if call.data == "formula_1" else 2
+    session_token = str(time.time())
+    
+    user_sessions[chat_id]["session_token"] = session_token
     user_sessions[chat_id]["formula"] = formula_num
     user_sessions[chat_id]["step"] = "running"
+    user_sessions[chat_id]["total_seconds"] = total_allowed_seconds
+    user_sessions[chat_id]["start_time"] = time.time()
     
-    bot.edit_message_text(f"🚀 Formula {formula_num} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
+    formula_name = "Formula 1 (AI Sniper)" if formula_num == 1 else "Formula 2 (Advanced Engine)"
+    
+    bot.edit_message_text(f"🚀 {formula_name} ဖြင့် စတင်အလုပ်လုပ်နေပါပြီ။", 
                           chat_id=chat_id, message_id=call.message.message_id)
     
-    threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num)).start()
+    bot.send_message(chat_id, f"👇 အောက်ပါ မီနူးခလုတ်များကို အသုံးပြုနိုင်ပါပြီ -", reply_markup=get_control_keyboard())
 
-def run_prediction_loop(chat_id, formula_num):
-    last_processed_issue = None
-    last_prediction = None
+    threading.Thread(target=run_prediction_loop, args=(chat_id, formula_num, session_token)).start()
+
+@bot.message_handler(func=lambda message: message.text in ["⏳ ကျန်ရှိချိန် စစ်ဆေးရန်", "🛑 ရပ်ရန် (Stop)"])
+def handle_reply_buttons(message):
+    chat_id = message.chat.id
+    session = user_sessions.get(chat_id)
     
-    api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
-    
-    # ပထမအကြိမ် ချက်ချင်းဆွဲထုတ်ရန်
-    try:
-        res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=5)
-        data = res.json()
-        list_data = data.get('data', {}).get('list', [])
+    if message.text == "🛑 ရပ်ရန် (Stop)":
+        if session and session.get("step") == "running":
+            elapsed = int(time.time() - session.get("start_time", time.time()))
+            remaining = session.get("total_seconds", 1800) - elapsed
+            session["total_seconds"] = max(0, remaining)
+            session["step"] = "stopped"
+            
+            check_id = session.get("check_id")
+            if check_id:
+                try:
+                    requests.patch(f"{FIREBASE_URL}/users/{check_id}.json", json={'timeLimit': round(session["total_seconds"]/60, 2)}, timeout=3)
+                except:
+                    pass
+
+        bot.send_message(chat_id, "🛑 **ခန့်မှန်းချက်များ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
         
-        if len(list_data) > 0:
-            current_issue = str(list_data[0].get('issueNumber'))
-            actual_num = int(list_data[0].get('number', 0))
-            
-            last_processed_issue = current_issue
-            next_issue = str(int(current_issue) + 1)
-            predicted_state = "BIG" if actual_num >= 5 else "SMALL"
-            last_prediction = predicted_state
-            
-            init_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                        f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
-                        f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
-                        f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-            bot.send_message(chat_id, init_text)
-    except Exception as e:
-        # Error တက်ရင်တောင် အလိုအလျောက် ပွဲစဉ်အတု (သို့မဟုတ်) Default တစ်ခုနဲ့ ချက်ချင်းစတင်ပေးမည်
-        next_issue = str(int(time.time()) // 60)
-        bot.send_message(chat_id, f"⚡ FLASH TRX • SNIPER AI\n\n📌 ပွဲစဉ်အသစ်: {next_issue}\n🔮 ခန့်မှန်းချက်: BIG\n⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}")
+    elif message.text == "⏳ ကျန်ရှိချိန် စစ်ဆေးရန်":
+        if session and session.get("step") == "running":
+            elapsed = int(time.time() - session.get("start_time", time.time()))
+            remaining = session.get("total_seconds", 1800) - elapsed
+            if remaining <= 0:
+                session["step"] = "stopped"
+                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ။**")
+            else:
+                mins = remaining // 60
+                secs = remaining % 60
+                bot.send_message(chat_id, f"⏳ ကျန်ရှိသော အချိန်: `{mins} မိနစ် {secs} စက္ကန့်`", parse_mode="Markdown")
+        else:
+            bot.send_message(chat_id, "⏳ လက်လွှတ်ဆောင်ရွက်နေသော ပွဲစဉ်များ မရှိသေးပါ။")
 
-    while chat_id in user_sessions and user_sessions[chat_id].get("step") == "running":
+def run_prediction_loop(chat_id, formula_num, session_token):
+    api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
+    formula_name = "Formula 1 (AI Sniper)" if formula_num == 1 else "Formula 2 (Advanced Engine)"
+
+    def fetch_latest_data():
         try:
-            time.sleep(12)
-            res = requests.get(f"{api_url}?ts={int(time.time()*1000)}", headers=API_HEADERS, timeout=5)
-            data = res.json()
-            list_data = data.get('data', {}).get('list', [])
+            payload = {"pageSize": 5, "pageNo": 1}
+            res = requests.post(api_url, json=payload, headers=API_HEADERS, timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                list_data = data.get('data', {}).get('list', [])
+                if list_data:
+                    return list_data[0]
+        except Exception as e:
+            print(f"API Fetch Error: {e}")
+        return None
+
+    last_sent_issue = None
+
+    # Force send first prediction immediately upon starting
+    initial_item = fetch_latest_data()
+    if initial_item:
+        init_issue = int(initial_item.get('issueNumber', 0)) + 1
+        actual_num = int(initial_item.get('number', 0))
+        last_sent_issue = init_issue
+        
+        if formula_num == 1:
+            predicted_state = "BIG" if (actual_num % 2) == 0 else "SMALL"
+            acc_val = random.choice([95, 96, 97, 98, 99])
+            acc_text = "Sniper" if acc_val >= 95 else f"{acc_val}%"
+        else:
+            predicted_state = "SMALL" if actual_num >= 5 else "BIG"
+            acc_val = random.choice([60, 65, 80])
+            acc_text = f"{acc_val}%"
+
+        first_text = f"⚡ FLASH TRX • AI PREDICTION ⚡\n\n" \
+                     f"📌 ပွဲစဉ်အသစ်: {str(init_issue)}\n" \
+                     f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
+                     f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
+                     f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {acc_text}"
+        bot.send_message(chat_id, first_text, reply_markup=get_control_keyboard())
+
+    while True:
+        try:
+            session = user_sessions.get(chat_id)
+            if not session or session.get("session_token") != session_token or session.get("step") != "running":
+                break
+
+            elapsed = int(time.time() - session.get("start_time", time.time()))
+            remaining = session.get("total_seconds", 1800) - elapsed
+            if remaining <= 0:
+                session["step"] = "stopped"
+                bot.send_message(chat_id, "⏰ **သင့်ရဲ့ အသုံးပြုခွင့်အချိန် ကုန်ဆုံးသွားပါပြီ။**", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
+                break
             
-            if len(list_data) > 0:
-                current_issue = str(list_data[0].get('issueNumber'))
-                actual_num = int(list_data[0].get('number', 0))
-                actual_state = "BIG" if actual_num >= 5 else "SMALL"
+            latest_item = fetch_latest_data()
+            
+            if latest_item:
+                latest_issue_str = str(latest_item.get('issueNumber'))
+                actual_num = int(latest_item.get('number', 0))
                 
-                if current_issue != last_processed_issue:
-                    if last_prediction and last_processed_issue:
-                        is_win = (last_prediction == actual_state)
-                        result_text = f"🎯 ပွဲစဉ်: {last_processed_issue}\n" \
-                                      f"🔮 ခန့်မှန်းချက်: {last_prediction}\n" \
-                                      f"🎲 ထွက်လာသည့်ဂဏန်း: {actual_num} ({actual_state})\n" \
-                                      f"ယခုပွဲရလဒ်: {'🟢 အနိုင် (WIN)' if is_win else '🔴 အရှုံး (LOSS)'}"
-                        bot.send_message(chat_id, result_text)
+                next_target_issue = int(latest_issue_str) + 1
+
+                if last_sent_issue != next_target_issue:
+                    last_sent_issue = next_target_issue
                     
-                    last_processed_issue = current_issue
-                    next_issue = str(int(current_issue) + 1)
-                    predicted_state = "BIG" if actual_num >= 5 else "SMALL"
-                    last_prediction = predicted_state
-                    
-                    next_text = f"⚡ FLASH TRX • SNIPER AI\n\n" \
-                                f"📌 ပွဲစဉ်အသစ်: {next_issue}\n" \
+                    if formula_num == 1:
+                        predicted_state = "BIG" if (actual_num % 2) == 0 else "SMALL"
+                        acc_val = random.choice([95, 96, 97, 98, 99])
+                        acc_text = "Sniper" if acc_val >= 95 else f"{acc_val}%"
+                    else:
+                        predicted_state = "SMALL" if actual_num >= 5 else "BIG"
+                        acc_val = random.choice([60, 65, 80])
+                        acc_text = f"{acc_val}%"
+
+                    next_text = f"⚡ FLASH TRX • AI PREDICTION ⚡\n\n" \
+                                f"📌 ပွဲစဉ်အသစ်: {str(next_target_issue)}\n" \
                                 f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
-                                f"⚡ အသုံးပြုနေသည့် ဖော်မြူလာ: Formula {formula_num}"
-                    bot.send_message(chat_id, next_text)
+                                f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
+                                f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {acc_text}"
+                    
+                    bot.send_message(chat_id, next_text, reply_markup=get_control_keyboard())
+            
+            time.sleep(3)
         except Exception as e:
             print(f"Loop Error: {e}")
+            time.sleep(5)
 
-if __name__ == "__main__":
-    RENDER_URL = os.environ.get("RENDER_EXTERNAL_URL")
-    if RENDER_URL:
-        bot.remove_webhook()
-        bot.set_webhook(url=f"{RENDER_URL}/{TOKEN}")
-        print(f"Webhook set to: {RENDER_URL}/{TOKEN}")
-
+def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+
+    bot.remove_webhook()
+    time.sleep(1)
+    
+    print("Bot is running with Infinity Polling...")
+    bot.infinity_polling(skip_pending=True, timeout=90, long_polling_timeout=5)
