@@ -171,7 +171,7 @@ def handle_reply_buttons(message):
     session = user_sessions.get(chat_id)
     
     if message.text == "🛑 ရပ်ရန် (Stop)":
-        if session and session.get("step") == "running":
+        if session and session.get("step"] == "running":
             elapsed = int(time.time() - session.get("start_time", time.time()))
             remaining = session.get("total_seconds", 1800) - elapsed
             session["total_seconds"] = max(0, remaining)
@@ -187,7 +187,7 @@ def handle_reply_buttons(message):
         bot.send_message(chat_id, "🛑 **ခန့်မှန်းချက်များ ရပ်တန့်သွားပါပြီ။**\n\nပြန်လည်စတင်ရန် /start ကိုနှိပ်ပါ။", parse_mode="Markdown", reply_markup=telebot.types.ReplyKeyboardRemove())
         
     elif message.text == "⏳ ကျန်ရှိချိန် စစ်ဆေးရန်":
-        if session and session.get("step") == "running":
+        if session and session.get("step"] == "running":
             elapsed = int(time.time() - session.get("start_time", time.time()))
             remaining = session.get("total_seconds", 1800) - elapsed
             if remaining <= 0:
@@ -202,12 +202,11 @@ def handle_reply_buttons(message):
 
 def run_prediction_loop(chat_id, formula_num, session_token):
     api_url = "https://draw.ar-lottery01.com/TrxWinGo/TrxWinGo_1M/GetHistoryIssuePage.json"
-    
     formula_name = "Formula 1 (AI Sniper)" if formula_num == 1 else "Formula 2 (Advanced Engine)"
 
     def fetch_latest_data():
         try:
-            payload = {"pageSize": 10, "pageNo": 1}
+            payload = {"pageSize": 5, "pageNo": 1}
             res = requests.post(api_url, json=payload, headers=API_HEADERS, timeout=5)
             if res.status_code == 200:
                 data = res.json()
@@ -218,21 +217,12 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             print(f"API Fetch Error: {e}")
         return None
 
-    first_item = fetch_latest_data()
-    if first_item:
-        last_target_issue = int(first_item.get('issueNumber'))
-    else:
-        t = time.gmtime()
-        date_str = time.strftime("%Y%m%d", t)
-        total_mins = t.tm_hour * 60 + t.tm_min
-        last_target_issue = int(f"{date_str}{10300000 + total_mins}")
-
-    current_target_issue = last_target_issue + 1
+    last_sent_issue = None
 
     while True:
         try:
             session = user_sessions.get(chat_id)
-            if not session or session.get("session_token") != session_token or session.get("step") != "running":
+            if not session or session.get("session_token") != session_token or session.get("step"] != "running":
                 break
 
             elapsed = int(time.time() - session.get("start_time", time.time()))
@@ -245,11 +235,14 @@ def run_prediction_loop(chat_id, formula_num, session_token):
             latest_item = fetch_latest_data()
             
             if latest_item:
-                latest_issue = int(latest_item.get('issueNumber'))
+                latest_issue_str = str(latest_item.get('issueNumber'))
                 actual_num = int(latest_item.get('number', 0))
                 
-                if latest_issue >= current_target_issue:
-                    current_target_issue += 1
+                # Calculate next target issue based on latest API issue
+                next_target_issue = int(latest_issue_str) + 1
+
+                if last_sent_issue != next_target_issue:
+                    last_sent_issue = next_target_issue
                     
                     if formula_num == 1:
                         predicted_state = "BIG" if (actual_num % 2) == 0 else "SMALL"
@@ -261,17 +254,17 @@ def run_prediction_loop(chat_id, formula_num, session_token):
                         acc_text = f"{acc_val}%"
 
                     next_text = f"⚡ FLASH TRX • AI PREDICTION ⚡\n\n" \
-                                f"📌 ပွဲစဉ်အသစ်: {str(current_target_issue)}\n" \
+                                f"📌 ပွဲစဉ်အသစ်: {str(next_target_issue)}\n" \
                                 f"🔮 ခန့်မှန်းချက်: {predicted_state}\n" \
                                 f"🎯 အသုံးပြုနေသည့် ဖော်မြူလာ: {formula_name}\n" \
                                 f"📊 အောင်မြင်မှုရာခိုင်နှုန်း: {acc_text}"
                     
                     bot.send_message(chat_id, next_text, reply_markup=get_control_keyboard())
             
-            time.sleep(5)
+            time.sleep(3)
         except Exception as e:
             print(f"Loop Error: {e}")
-            time.sleep(10)
+            time.sleep(5)
 
 def run_flask():
     port = int(os.environ.get("PORT", 5000))
